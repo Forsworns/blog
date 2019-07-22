@@ -35,7 +35,7 @@ module.exports = {
                 nav: [
                     { text: 'Homepage', link: '/' },
                     { text: 'About Me', link: '/about-me/' },
-                    { text: 'Blogs', link: '/blogs/' },
+                    { text: 'Blogs', link: '/zh/blogs/' },
                 ],
             },
             '/zh/': {
@@ -51,7 +51,7 @@ module.exports = {
                 nav: [
                     { text: '主页', link: '/zh/' },
                     { text: '关于我', link: '/zh/about-me/' },
-                    { text: '博客', link: '/blogs/' },
+                    { text: '博客', link: '/zh/blogs/' },
                 ],
             }
         }

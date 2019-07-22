@@ -15,7 +15,6 @@ tag: 杂谈
 
 ![](./embarrassed.jpg)
 
-[返回](/blogs/)
- 
+[返回](/zh/blogs/)
 
- 
+

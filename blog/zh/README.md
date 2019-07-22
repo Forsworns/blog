@@ -9,8 +9,7 @@ actionLink: /zh/about-me/
 footer: MIT Licensed | Powered by VuePress
 ---
 
--  [第一篇博客](/blogs/20190721/) 这是一篇平平无奇的初始博客。
+-  [第一篇博客](/zh/blogs/20190721/) 这是一篇平平无奇的初始博客。
   
 
 
- 
