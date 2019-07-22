@@ -10,3 +10,9 @@ export default ({
     // ...apply enhancements to the app
     Vue.use(Element)
 }
+ 
+ <Comment/> 
+ 
+ 
+ <Comment/> 
+ 
