@@ -1,5 +1,6 @@
 node_modules/
 blog/.vuepress/dist
+blog/.vuepress/secret.js
 
 ### VisualStudioCode ###
 .vscode/*

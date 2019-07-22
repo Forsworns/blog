@@ -1,4 +1,7 @@
+SECRET = require('./secret.js')
+
 module.exports = {
+    title: 'Blog', // 这里改了vuepress默认主题的NavBar，取消了左上角的显示
     locales: {
         // 键名是该语言所属的子路径
         '/': {
@@ -8,17 +11,16 @@ module.exports = {
             lang: 'zh-CN',
         }
     },
+    head: [
+        ['link', { rel: 'stylesheet', href: 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.css' }],
+        ['link', { rel: "stylesheet", href: "https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/2.10.0/github-markdown.min.css" }]
+    ],
     // blog
     themeConfig: {
         logo: '/title.png',
         repo: 'Forsworns/blog',
         repoLabel: 'GitHub',
-        sideBar: {
-            '/blogs/': [
-                '/',
-                '/20190721/first.md'
-            ]
-        },
+        sideBar: false,
         locales: {
             '/': {
                 selectText: 'Languages',
@@ -58,4 +60,16 @@ module.exports = {
     // vuepress
     serviceWorker: true,
     evergreen: true,
+    plugins: [
+        '@vuepress/back-to-top',
+        '@vuepress/active-header-links', ['@vuepress/google-analytics',
+            { 'ga': SECRET.GA }
+        ]
+    ],
+    markdown: {
+        extendMarkdown: md => {
+            md.set({ html: true })
+            md.use(require('markdown-it-katex'));
+        },
+    },
 }
