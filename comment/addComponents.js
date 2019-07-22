@@ -5,7 +5,11 @@ const rootDir = './blog'
 findMarkdown(rootDir, writeComponents)
 
 function writeComponents(dir) {
-    fs.appendFile(dir, `\n \n <Comment/> \n `, (err) => {
+    let lang = 'en'
+    if (dir.split('/')[1] == 'zh') {
+        lang = 'zh-CN'
+    }
+    fs.appendFile(dir, `\n \n <Comment lang="${lang}"/> \n `, (err) => {
         if (err) throw err
         console.log(`add components to ${dir}`)
     })
