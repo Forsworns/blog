@@ -1,4 +1,5 @@
 ---
+sidebar: false
 home: true
 heroImage: /title.png
 heroText: 

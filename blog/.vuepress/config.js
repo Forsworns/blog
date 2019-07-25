@@ -1,7 +1,7 @@
 SECRET = require('./secret.js')
 
 module.exports = {
-    title: 'Blog', // 这里改了vuepress默认主题的NavBar，取消了左上角的显示
+    title: 'Blog', // 这里改了vuepress默认主题的NavBar，取消了左上角的显示。更新后也要记得修改
     locales: {
         // 键名是该语言所属的子路径
         '/': {
@@ -20,7 +20,7 @@ module.exports = {
         logo: '/title.png',
         repo: 'Forsworns/blog',
         repoLabel: 'GitHub',
-        sideBar: false,
+        sideBar: 'auto',
         locales: {
             '/': {
                 selectText: 'Languages',

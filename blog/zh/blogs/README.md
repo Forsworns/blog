@@ -1,7 +1,10 @@
 ---
 layout: BlogLayout
+sidebar: false
 ---
 
-- [第一篇博客](/zh/blogs/20190721) 2019.07.21                 
+## 所有博客
+
+<BlogTimeline/>
 
  

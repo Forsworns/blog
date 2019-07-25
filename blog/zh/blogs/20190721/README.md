@@ -1,11 +1,13 @@
 ---
+layout: ContentLayout.vue
+sidebar: auto
 title: 第一篇博客
 tag: 杂谈
 ---
 
 
 
-## 第一篇博客
+# 第一篇博客
 
 今天是7月21号。
 

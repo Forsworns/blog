@@ -1,6 +1,6 @@
 ---
 layout: AboutMeLayout
-footer: MIT Licensed | Powered by VuePress
+sidebar: false
 ---
 
 
