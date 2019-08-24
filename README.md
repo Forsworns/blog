@@ -20,3 +20,19 @@ Deploying:
 ./deploy.sh
 ```
 
+
+
+
+
+修改过`\node_modules\@vuepress\theme-default\components\Navbar.vue` 中删掉了
+
+```vue
+<span
+    ref="siteName"
+    class="site-name"
+    v-if="$siteTitle"
+    :class="{ 'can-hide': $site.themeConfig.logo }"
+	>{{ $siteTitle }}
+</span>
+```
+
