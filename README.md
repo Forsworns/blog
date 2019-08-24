@@ -24,15 +24,15 @@ Deploying:
 
 
 
-修改过`\node_modules\@vuepress\theme-default\components\Navbar.vue` 中删掉了
+修改过`\node_modules\@vuepress\theme-default\components\Navbar.vue` 中改成了
 
 ```vue
 <span
-    ref="siteName"
-    class="site-name"
-    v-if="$siteTitle"
-    :class="{ 'can-hide': $site.themeConfig.logo }"
-	>{{ $siteTitle }}
+      ref="siteName"
+      class="site-name"
+      v-if="!$site.themeConfig.logo"
+      :class="{ 'can-hide': $site.themeConfig.logo }"
+      >{{ $siteTitle }}
 </span>
 ```
 
