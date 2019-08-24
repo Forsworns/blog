@@ -2,15 +2,17 @@
   "scripts": {
     "dev": "vuepress dev blog",
     "biuld": "只有在build时才让评论组件打包到编译后的文件中，而非直接添加在工程文件",
-    "build": "node ./comment/addComponents.js && vuepress build blog && node ./comment/delComponents.js"
+    "build": "node ./build-config/selectedArticles.js && node ./build-config/addComponents.js && vuepress build blog && node ./build-config/delComponents.js"
   },
   "devDependencies": {
     "@vuepress/plugin-active-header-links": "^1.0.0-rc.1",
     "@vuepress/plugin-back-to-top": "^1.0.0-rc.1",
     "@vuepress/plugin-google-analytics": "^1.0.0-rc.1",
+    "highlight.js": "^9.15.10",
     "markdown-it-katex": "^2.0.3",
     "node-sass": "^4.12.0",
     "sass-loader": "^7.1.0",
+    "vue-highlight.js": "^3.1.0",
     "vuepress": "^1.0.2"
   },
   "dependencies": {

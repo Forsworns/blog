@@ -14,18 +14,13 @@
 </template>
 
 <script>
+import blogs from "../../zh/blogs/blogs.json"
 
 export default {
   name: "BlogTimeline",
   data() {
     return {
-      blogs: [
-        {
-          date: "2019/07/21",
-          title: "第一篇博客",
-          content: "这是一篇平平无奇的初始博客。"
-        }
-      ]
+      blogs: blogs
     };
   },
   methods: {
