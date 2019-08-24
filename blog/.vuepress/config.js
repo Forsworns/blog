@@ -20,7 +20,7 @@ module.exports = {
         logo: '/title.png',
         repo: 'Forsworns/blog',
         repoLabel: 'GitHub',
-        sideBar: 'auto',
+        // sideBar: 'auto',
         locales: {
             '/': {
                 selectText: 'Languages',

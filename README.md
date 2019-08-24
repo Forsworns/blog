@@ -22,7 +22,7 @@ Deploying:
 
 
 
-
+`blog\zh\blogs` 下写作，把摘要信息写在目录下的`blog.json`中 （考虑自动从YAML中抽取？）
 
 修改过`\node_modules\@vuepress\theme-default\components\Navbar.vue` 中改成了
 

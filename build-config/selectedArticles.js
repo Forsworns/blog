@@ -16,7 +16,7 @@ function selectArticles(fileName) {
 
         let articles = blogs.slice(blogs.length - AMOUNT)
         articles.forEach((item) => {
-            fs.appendFile(fileName, `\n \n -  [${item.title}](/zh/blogs/${item.date.split('/').join()}/) ${item.content}\n `, (err) => {
+            fs.appendFile(fileName, `\n \n -  [${item.title}](/zh/blogs/${item.date.split('/').join("")}/) ${item.content}\n `, (err) => {
                 if (err) throw err
                 console.log(`add selected articles to index page`)
             })

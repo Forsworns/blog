@@ -1,6 +1,5 @@
 ---
 layout: ContentLayout.vue
-sidebar: auto
 title: 第一篇博客
 tag: 杂谈
 ---
