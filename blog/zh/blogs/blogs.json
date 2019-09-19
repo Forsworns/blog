@@ -8,6 +8,16 @@
 	  "date": "2019/08/24",
 	  "title": "Anaconda中的cudnn版本问题",
 	  "content": "Loaded runtime CuDNN library: 7.1.4 but source was compiled with: 7.4.1"
+	}，
+	{
+	  "date": "2019/09/08",
+	  "title": "压缩感知小结",
+	  "content": "知识总结和一小部分心得"
+	}，
+	{
+	  "date": "2019/09/19",
+	  "title": "使用Alias命令接收参数",
+	  "content": "通过在定义函数使得alias命令接收参数"
 	}
 ]
 
