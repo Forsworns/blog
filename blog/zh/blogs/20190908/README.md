@@ -18,7 +18,7 @@ $\begin{matrix}
 1 & 0 & 2 \\
 0 & 3 & 0 \\
 0 & 0 & 0
-\end{matrix} $
+\end{matrix}$
 
 的spark常数就是2，而矩阵
 

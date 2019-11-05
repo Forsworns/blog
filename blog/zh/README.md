@@ -10,10 +10,10 @@ actionLink: /zh/about-me/
 footer: MIT Licensed | Powered by VuePress
 ---
 
-                  
+                    
  
- -  [Anaconda中的cudnn版本问题](/zh/blogs/20190824/) Loaded runtime CuDNN library: 7.1.4 but source was compiled with: 7.4.1
+ -  [压缩感知小结](/zh/blogs/20190908/) 知识总结和一小部分心得
  
  
- -  [第一篇博客](/zh/blogs/20190721/) 这是一篇平平无奇的初始博客。
+ -  [使用Alias命令接收参数](/zh/blogs/20190919/) 通过在定义函数使得alias命令接收参数
  
