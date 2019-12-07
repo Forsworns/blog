@@ -1,19 +1,15 @@
 ---
 layout: ContentLayout.vue
-title: Effective Modern C++ 简记
+title: Effective Python 简记
 tag: 书摘
 
 ---
+
 [[toc]]
+
 ## Deducing Types
 
 ### Understand template type deduction
-
-### Understand auto type dedution
-
-### Understand decltype
-
-### Know how to view deduced types
 
 
 

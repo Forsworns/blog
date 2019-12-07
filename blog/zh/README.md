@@ -10,10 +10,10 @@ actionLink: /zh/about-me/
 footer: MIT Licensed | Powered by VuePress
 ---
 
-                    
+                        
  
- -  [压缩感知小结](/zh/blogs/20190908/) 知识总结和一小部分心得
+ -  [拟阵与贪心算法](/zh/blogs/20191103/) 何为拟阵及其与贪心算法的关系
  
  
- -  [使用Alias命令接收参数](/zh/blogs/20190919/) 通过在定义函数使得alias命令接收参数
+ -  [Effective Modern C++简记](/zh/blogs/20191104/) 《Effective Modern C++》内容摘要
  
