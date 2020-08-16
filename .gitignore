@@ -3,6 +3,7 @@ blog/.vuepress/dist
 blog/.vuepress/secret.js
 *.pdf
 backup/
+note.txt
 
 ### VisualStudioCode ###
 .vscode/*

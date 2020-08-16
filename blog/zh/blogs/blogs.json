@@ -49,8 +49,18 @@
         "content": "重装双系统碰到的Grub引导错误"
     },
     {
-        "date": "2019/11/28",
-        "title": "Rust的一些特性",
-        "content": "最近学习Rust的简记和感想"
+        "date": "2020/06/16",
+        "title": "NS3 简记",
+        "content": "NS3中混编C++/python代码"
+    },
+    {
+        "date": "2020/08/16",
+        "title": "Yet Another JSON Lib",
+        "content": "阅读了知乎上的教程用Modern C++重写~"
+    },
+    {
+        "date": "2020/08/17",
+        "title": "学习rCore",
+        "content": "参考rCore教程用rust写一个简单的内核"
     }
 ]
