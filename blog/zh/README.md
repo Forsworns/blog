@@ -10,10 +10,10 @@ actionLink: /zh/about-me/
 footer: MIT Licensed | Powered by VuePress
 ---
 
-                        
+                                      
  
- -  [拟阵与贪心算法](/zh/blogs/20191103/) 何为拟阵及其与贪心算法的关系
+ -  [NS3 简记](/zh/blogs/20200616/) NS3中混编C++/python代码
  
  
- -  [Effective Modern C++简记](/zh/blogs/20191104/) 《Effective Modern C++》内容摘要
+ -  [Ubuntu启动Grub引导错误](/zh/blogs/20191112/) 重装双系统碰到的Grub引导错误
  
