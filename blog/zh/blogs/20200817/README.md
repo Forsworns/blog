@@ -6,10 +6,10 @@ tag: 笔记
 
 ---
 
-[[toc]]
-
 
 # 学习rCore
+
+[[toc]]
 
 之前花了好长时间去读[The Rust Programming Language](https://doc.rust-lang.org/book/#the-rust-programming-language)，写了写书里的实例，也在LeetCode上用Rust[写了一些题](https://github.com/Forsworns/OJ_Diary)，但是一直没有动手做一个项目。
 

@@ -8,7 +8,7 @@ import ParentLayout from "@vuepress/theme-default/layouts/Layout.vue";
 export default {
   name: "ContentLayout",
   components: {
-    ParentLayout
-  }
+    ParentLayout,
+  },
 };
 </script>

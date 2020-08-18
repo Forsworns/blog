@@ -5,6 +5,8 @@ tag: 书摘
 
 ---
 
+# Effective Python 简记
+
 [[toc]]
 
 ## Deducing Types

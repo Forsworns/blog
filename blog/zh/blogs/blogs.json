@@ -62,5 +62,10 @@
         "date": "2020/08/17",
         "title": "学习rCore",
         "content": "参考rCore教程用rust写一个简单的内核"
+    },
+    {
+        "date": "2020/08/18",
+        "title": "想要一只看板娘",
+        "content": "基于Vuepress搭建的博客的美化"
     }
 ]
