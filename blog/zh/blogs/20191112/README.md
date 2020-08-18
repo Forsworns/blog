@@ -4,6 +4,8 @@ title: Ubuntu启动Grub引导错误
 tag: 笔记
 ---
 
+# Ubuntu启动Grub引导错误
+
 [[toc]]
 
 把系统玩坏了，重新安装系统后，发现启动不了Ubuntu系统，会停留在Grub界面，类似下图

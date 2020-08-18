@@ -8,7 +8,7 @@ import ParentLayout from "@vuepress/theme-default/layouts/Layout.vue";
 export default {
   name: "BlogLayout",
   components: {
-    ParentLayout
-  }
+    ParentLayout,
+  },
 };
 </script>
