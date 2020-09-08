@@ -10,10 +10,10 @@ actionLink: /zh/about-me/
 footer: MIT Licensed | Powered by VuePress
 ---
 
-                                      
+                                        
  
- -  [NS3 简记](/zh/blogs/20200616/) NS3中混编C++/python代码
+ -  [学习rCore](/zh/blogs/20200817/) 参考rCore教程用rust写一个简单的内核
  
  
- -  [Ubuntu启动Grub引导错误](/zh/blogs/20191112/) 重装双系统碰到的Grub引导错误
+ -  [想要一只看板娘](/zh/blogs/20200818/) 基于Vuepress搭建的博客的美化
  

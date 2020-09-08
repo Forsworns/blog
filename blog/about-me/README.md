@@ -4,7 +4,6 @@ sidebar: false
 ---
 
 
+<AboutMe lang="en"/>
 
-Still working on this...
-
-[Curriculum Vitae](/cv_en_v1.pdf)
+[Curriculum Vitae](/cv_en.pdf)
