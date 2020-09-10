@@ -10,10 +10,10 @@ actionLink: /zh/about-me/
 footer: MIT Licensed | Powered by VuePress
 ---
 
-                                          
- 
- -  [学习rCore](/zh/blogs/20200817/) 参考rCore教程用rust写一个简单的内核
- 
+                                              
  
  -  [想要一只看板娘](/zh/blogs/20200818/) 基于Vuepress搭建的博客的美化
+ 
+ 
+ -  [学习rCore](/zh/blogs/20200817/) 参考rCore教程用rust写一个简单的内核
  

@@ -10,6 +10,7 @@
 <script>
 export default {
   name: "projects",
+  props: ["lang"],
   data() {
     return {
       cn: {
@@ -31,7 +32,7 @@ export default {
     };
   },
   computed: {
-    projected() {
+    projects() {
       return this[this.lang].projects;
     },
   },

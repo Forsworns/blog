@@ -44,7 +44,7 @@ Deploying:
 
 - 自定义了“所有博客”列表，可在`blog/.vuepress/components/BlogTimeLine.vue`中修改。
 
-- 自定义了个人页面，在`blog/.vuepress/components/AboutMeLayout.vue`中修改。
+- 自定义了个人页面，在`blog/.vuepress/components/AboutMe.vue`及其所导入的组件中修改。
 
 - 添加了评论区，基于GitTalk。
 

@@ -25,7 +25,7 @@
         <i class="icon ion-university"></i> Shanghai Jiao Tong University, Department of Computer Science and Engineering, BEng. (16-20).
       </p>
       <p>
-        <i class="icon ion-university"></i> Shanghai Jiao Tong University, Antai College of Economics \& Management, Second Major. (16-20).
+        <i class="icon ion-university"></i> Shanghai Jiao Tong University, Antai College of Economics & Management, Second Major. (16-20).
       </p>
     </div>
   </div>
