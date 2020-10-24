@@ -1,4 +1,5 @@
-[{
+[
+    {
         "date": "2019/07/21",
         "title": "第一篇博客",
         "content": "这是一篇平平无奇的初始博客。"
@@ -67,5 +68,10 @@
         "date": "2020/08/18",
         "title": "想要一只看板娘",
         "content": "基于Vuepress搭建的博客的美化"
+    },
+    {
+        "date": "2020/10/23",
+        "title": "WebRTC折腾笔记",
+        "content": "WebRTC on WSL2 Ubuntu2 折腾笔记"
     }
 ]
