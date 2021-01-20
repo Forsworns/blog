@@ -4,9 +4,9 @@
       <el-timeline-item :timestamp="blog.date" placement="top">
         <el-card>
           <router-link :to="computeLink(blog.date)">
-            <h4>{{blog.title}}</h4>
+            <h4>{{ blog.title }}</h4>
           </router-link>
-          <p>{{blog.content}}</p>
+          <p>{{ blog.content }}</p>
         </el-card>
       </el-timeline-item>
     </el-timeline>
@@ -14,20 +14,20 @@
 </template>
 
 <script>
-import blogs from "../../zh/blogs/blogs.json"
+import blogs from "../../zh/blogs/blogs.json";
 
 export default {
   name: "BlogTimeline",
   data() {
     return {
-      blogs: blogs
+      blogs: blogs.reverse(),
     };
   },
   methods: {
     computeLink(date) {
       return `${date.split("/").join("")}/`;
-    }
-  }
+    },
+  },
 };
 </script>
 

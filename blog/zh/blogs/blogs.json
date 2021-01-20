@@ -73,5 +73,10 @@
         "date": "2020/10/23",
         "title": "WebRTC折腾笔记",
         "content": "WebRTC on WSL2 Ubuntu2 折腾笔记"
+    },
+    {
+        "date": "2021/01/23",
+        "title": "Rust：克隆trait object？",
+        "content": "Rust中克隆Trait Object遇到的坑"
     }
 ]

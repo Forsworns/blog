@@ -80,6 +80,8 @@ git checkout -b m85 refs/remotes/branch-heads/4183
 
 # Linux环境搭建
 
+项目结构和上面类似，但是有一些example没有，也不知道别的有没有区别……就直接重新搭建了一份
+
 过程类似，因为depot_tools安过了，所以第一步可以跳过了
 
 ```shell
@@ -146,5 +148,17 @@ du --max-depth=1 -h
 ```
 
 过滤掉大的、没必要改动的文件夹
+
+# Android Studio配置
+
+官网上的方法已经标出了无法使用，推荐直接将`src/examples/androidapp/`下的代码拷贝出来。
+
+用Android Studio创建一个项目，创建时`minSdkVersion`设置为21而不是默认的16，因为webrtc包不支持更低的版本。package name建议设置成了`org.appspot.apprtc`，在Android Studio项目目录结构中，把`src/examples/androidapp/`下的文件放到对应位置。注意 `src/examples/androidapp/third_party/autobanh/lib/autobanh.jar`文件需要拷贝到 `src/libs` 目录下，`third_party`中的其他文件可以删掉了。其他的比如`build.gradle`在`app` Module下，`res`文件夹是在`src/main`下，`org`放到`src/main/java`下。
+
+这时需要用Android Studio的Refactor选项中的Migrate to AndroidX，升级陈旧的依赖。但是这里有个坑是Nullable注解依赖不会自动更新，所以需要将java源代码中所有的`import android.support.annotation.Nullable;`替换为`import androidx.annotation.Nullable;`。然后sync一下gradle，就可以build了。
+
+
+
+
 
 [返回](/zh/blogs/)
