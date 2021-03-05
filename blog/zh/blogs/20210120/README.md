@@ -4,6 +4,7 @@ title: Rust：克隆trait object？
 tag: 笔记
 ---
 
+[[toc]]
 
 # Rust：克隆trait object？
 

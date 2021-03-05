@@ -15,12 +15,13 @@
 
 <script>
 import blogs from "../../zh/blogs/blogs.json";
+blogs.reverse();
 
 export default {
   name: "BlogTimeline",
   data() {
     return {
-      blogs: blogs.reverse(),
+      blogs,
     };
   },
   methods: {
