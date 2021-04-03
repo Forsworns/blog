@@ -35,11 +35,6 @@
         "content": "《Effective Modern C++》内容摘要"
     },
     {
-        "date": "2019/11/07",
-        "title": "Effective Python 简记",
-        "content": "《Effective Python》内容摘要"
-    },
-    {
         "date": "2019/11/09",
         "title": "移动通信和SIM卡",
         "content": "移动通信和SIM相关内容简记"
@@ -97,11 +92,41 @@
     {
         "date": "2021/02/23",
         "title": "STM32MP157A和IPCC",
-        "content": "最近买到了这块板子进行学习"
+        "content": "开发板学习"
     },
     {
         "date": "2021/02/24",
         "title": "Rust宏学习笔记",
         "content": "Keep Learning！"
+    },
+    {
+        "date": "2021/02/24",
+        "title": "虚拟化基础学习笔记",
+        "content": "基础知识"
+    },
+    {
+        "date": "2021/03/10",
+        "title": "USART, UART, RS232, USB, SPI, I2C, TTL都是啥",
+        "content": "串行通信协议总结"
+    },
+    {
+        "date": "2021/03/11",
+        "title": "BPF和eBPF",
+        "content": "相关材料整理"
+    },
+    {
+        "date": "2021/03/12",
+        "title": "Rust 基础备忘",
+        "content": "大基本功"
+    },
+    {
+        "date": "2021/03/14",
+        "title": "RPC",
+        "content": "基础知识"
+    },
+    {
+        "date": "2021/03/15",
+        "title": "Wifi连接受到的电磁干扰",
+        "content": "奇怪的知识增加了"
     }
 ]

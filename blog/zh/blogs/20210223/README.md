@@ -82,7 +82,7 @@ STM32CubeMX 可提供以下服务（在使用前一般要对 MPU 内部的 perip
 
 配置完成后使用 "ctrl+s" 就可以自动保存配置并生成初始化代码。
 
-## 学习笔记
+## 	STM32学习笔记
 
 华清远见教程手册第三部分是 Cortex M4 的实验内容；第四部分是 Cortex A7 的实验内容。
 
@@ -178,7 +178,7 @@ HSEM总共设计了32个32位（4 Bytes）的寄存器用于存储信号量，�
 
 STM32MP157 手册第 12 章、[官方wiki](https://wiki.stmicroelectronics.cn/stm32mpu/wiki/IPCC_internal_peripheral)。
 
-IPCC全称 inter-processor communication controller 可以用来在两个处理器间传递数据，他提供的是 non-blocking 的信号机制，使用原子操作发送和获取信息。视通信的模式，可能会用从 MCU SRAM 中分划出一部分作为共享内存。IPCC是不安全的 peripheral。在启动时无法使用。
+IPCC全称 inter-processor communication controller 可以用来在两个处理器间传递数据，他提供的是 non-blocking 的信号机制，使用原子操作发送和获取信息。视通信的模式，从 MCU SRAM 中分划出一部分作为共享内存。IPCC是不安全的 peripheral。在启动时无法使用。
 
 IPCC peripheral 提供了管理 IPCC 通信的机制。每个处理器都有自己独立的寄存器组和中断。
 
@@ -210,9 +210,9 @@ IPCC peripheral 提供了管理 IPCC 通信的机制。每个处理器都有自�
 
 但是STM32MP157的手册中只有前两种，下面分别给出具体的电位图，理解起来更方便：
 
-![](D:\code\blog\blog\zh\blogs\20210223\simplex.png)
+![](./simplex.png)
 
-![image-20210225000617874](D:\code\blog\blog\zh\blogs\20210223\half-duplex.png)
+![](./half_duplex.png)
 
 ##### 架构
 
@@ -282,7 +282,7 @@ STM32MP157中，有两个组成部分
 
 - 在远程处理器的内存中加载 ELF firmware
 - 解析 firmware resource table ，以控制相关资源（例如IPC、memory）
-- 控制远程处理器的执行，远程让他运行或停止
+- 控制远程处理器的执行，远程让他运行或停止，即 Life Cycle Management （LCM）
 - 提供检测、debug 远程固件的服务
 
 **stm32_rproc**，ST公司编写特定的远程处理器驱动，功能如下：
@@ -316,7 +316,7 @@ IPCC相关设置不能直接单独在某个 context 下开启，一定是两个�
 
 ##### 相关代码
 
-华清远见整理的资料中的相关的 HAL 和 LL 层的源码：
+ 1.2.0 版本下 HAL 和 LL 层的源码：
 
 - `\Cortex-M4\STM32Cube_FW_MP1_V1.2.0\Drivers\STM32MP1xx_HAL_Driver\Inc\stm32mp1xx_ll_ipcc.h`
 - `\Cortex-M4\STM32Cube_FW_MP1_V1.2.0\Drivers\STM32MP1xx_HAL_Driver\Src\stm32mp1xx_hal_ipcc.c`
@@ -369,9 +369,34 @@ IPCC相关设置不能直接单独在某个 context 下开启，一定是两个�
 OpenAMP MW 使用下列硬件资源：
 
 - IPCC peripheral，用来在 CA7 和 CM4 之间传递事件信号（mailbox）。
-
 - MCU SRAM peripheral 用来缓存通信信息 (virtio buffers) 。
 - 该例子中保留的共享内存区域：SHM_ADDR=0x10040000，SHM_SIZE=128k。它定义在 `platform_info.c` 文件中。
+
+OpenAMP 的工作流程：
+
+- 主处理器使用 `remoteproc` 去在远程处理器上装载和运行一个远程应用
+- 在远程应用运行时，在主从应用之间建立 rpmsg 信道
+- 使用 `rpmsg` API 进行 IPC 
+
+具体而言，以主处理器向从处理器传递消息为例，可以总结为下图（这里used是说已经读取过，可以丢弃的buffer）：
+
+![](./Arm_to_pru.png)
+
+Master （图中是ARM Host）的步骤：
+
+- Step 1a：重新分配一个buffer
+- Step 1b （与 Step 1a 二选一）：从 slave的Vring中取一个用过的buffer
+- Step 2：将数据转移到 Step 1a 或 Step 1b 拿到的 buffer 中
+- Step 3：将新填入数据的 buffer 添加到 slave 的 Vring 的 available 列表中，等待读取 
+- Step 4：使用 Mailbox 给 slave 发送一个读取的信号
+
+Slave （图中是 PRU0，不用管它是啥）的步骤：
+
+- Step 5：在 Mailbox 中发现了来自 master 的信号，从处理器被告知有新数据可读了
+- Step 6：从 slave 自己的 Vring 中读取数据
+- Step 7：将数据转移到自己的 buffer 中
+- Step 8：将空 buffer 放回自己的 Vring 已使用的 buffer 列表中
+- Step 9：使用另一个 Mailbox，告知主处理器自己处理完数据了
 
 在这个例子中：
 
@@ -420,22 +445,15 @@ OpenAMP MW 使用下列硬件资源：
  */
 ```
 
-**相关源码**
-
-- OpenAMP/OpenAMP_TTY_echo/Inc/openamp_conf.h                     Configuration file for OpenAMP MW
-- OpenAMP/OpenAMP_TTY_echo/Inc/stm32mp1xx_hal_conf.h         HAL Library Configuration file
-- OpenAMP/OpenAMP_TTY_echo/Src/main.c                             Main program
-- OpenAMP/OpenAMP_TTY_echo/Src/mbox_ipcc.c                        mailbox_ipcc_if.c MiddleWare configuration
-- OpenAMP/OpenAMP_TTY_echo/Src/openamp.c                          User OpenAMP init
-- OpenAMP/OpenAMP_TTY_echo/Src/rsc_table.c                        Resource_table for OpenAMP
-- OpenAMP/OpenAMP_TTY_echo/Src/stm32mp1xx_it.c               Interrupt handlers
-- OpenAMP/OpenAMP_TTY_echo/Src/system_stm32mp1xx.c           STM32MP1xx system clock configuration file
+在第三方库中，virtual_driver 库目录下的 `virtual_uart.h/c`包含实际开发中用到的接口，是调用的 `OpenAMP`库，`OpenAMP` 使用了 `libmetal` 库的通用接口去管理外设、内存、中断。关于 `OpenAMP` 官方代码库下的 `doc` 目录有提供一份用户手册供参考。
 
 在 `openamp_conf.h` 中可以通过宏设置是使用 IPCC 还是 HSEM 作为通信机制，也可以通过宏选择是使用 UART 还是 I2C。
 
 CM4 需要一个进程循环使用 `openamp.c` 中的 `OPENAMP_check_for_message()` 来查看是否接收到了数据，如果接收到会调用上面的回调，回调中如果拷贝了接收到的数据，此时就可以在循环中查看接收到的数据，记得清零接收到数据的标记。
 
-CM4 需要调用 `virt_uart.c` 中的 `VIRT_UART_Transmit()` 去向 CA7 传输数据，最大传输数据不可以超过 `RPMSG_BUFFER_SIZE-16`，该常量定义在 `rpmsg_virtio.h` 中，是512，也即只能传输 496 字节的数据。所以比较可行的方法是双方互相发送字符串指令去调用对方上的函数？直接传输数据等不太现实。同时，CM4 使用`virt_uart.c`中的函数 `VIRT_UART_RegisterCallback()` 向 virtual UART Handler 注册回调函数，在接收到数据后，从 handler 中读取数据大小 `handler->RxXferSize` 和数据 `huart->pRxBuffPtr`，设置标记表示读取到数据等。`virt_uart.c` 中也定义了 `VIRT_UART_Init()`，用来调用 `OPENAMP_create_endpoint()` 创建通信端点。`VIRT_UART_read_cb()`是更低一层的接口，用来向端点所在的 `VIRT_UART_HandleTypeDef`中写入数据。注意端点本身是在  Virt UART handler 结构体中的，这里找到端点对应的 handler 的方法和 Linux 中链表的使用十分类似，也是定义了一个宏，根据结构体成员的地址和偏移量计算结构体的地址。
+CM4 需要调用 `virt_uart.c` 中的 `VIRT_UART_Transmit()` 去向 CA7 传输数据，最大传输数据不可以超过 `RPMSG_BUFFER_SIZE-16`，该常量定义在 `rpmsg_virtio.h` 中，是512，也即只能传输 496 字节的数据。所以比较可行的方法是双方互相发送字符串指令去调用对方上的函数？直接传输数据等不太现实。同时，CM4 使用`virt_uart.c`中的函数 `VIRT_UART_RegisterCallback()` 向 virtual UART Handler 注册回调函数，在接收到数据后，从 handler 中读取数据大小 `handler->RxXferSize` 和数据 `huart->pRxBuffPtr`，设置标记表示读取到数据等。`virt_uart.c` 中也定义了 `VIRT_UART_Init()`，用来调用 `openamp.c`中的`OPENAMP_create_endpoint()` 创建通信端点。`VIRT_UART_read_cb()`是更低一层的接口，用来向端点所在的 `VIRT_UART_HandleTypeDef`中写入数据。注意端点本身是在  Virt UART handler 结构体中的，这里找到端点对应的 handler 的方法和 Linux 中链表的使用十分类似，也是定义了一个宏，根据结构体成员的地址和偏移量计算结构体的地址。
+
+`openamp.h`和`openamp.c` 是对 `rpmsg.h` 和 `rpmsg.c` 中的 API 进行了封装。
 
 `mbox_ipcc.c` 中，通过 `MAILBOX_INIT()` 函数，调用`HAL_IPCC_ActivateNotification()`在两个 IPCC channel 上分别注册回调函数。在接收到数据后，回调函数中设置标志提示 `MAILBOX_Poll()`函数可以进行读取了，同时会调用提醒 CPU 在哪个 ipcc handler 上哪个通道接收到了数据。在`MAILBOX_Poll()` 中会检查两个通道上的标记，如果接收信道检测到数据或发送信道为空，则可以调用 `rproc_virtio_notified()` 来提醒 virtio_device。在 `MAILBOX_Notify()` 中则会检测信道是否为空（会等待到信道为空），提醒 CA7。 
 
@@ -508,6 +526,178 @@ typedef enum
 
 `virtqueue.c` 定义了数据结构及其方法，`virtqueue_create()`中 virtio 队列 vq 的 `notify`函数是需要根据设备定义的。
 
+### 相关数据结构：
+
+#### Libmetal helper data struct
+
+```
+struct metal_io_region {
+	char name[64];                      /**< I/O region name */
+	void                    *virt;      /**< base virtual address */
+	const metal_phys_addr_t *physmap;   /**< table of base physical address
+	                                         of each of the pages in the I/O
+	                                         region */
+	size_t                  size;       /**< size of the I/O region */
+	unsigned long           page_shift; /**< page shift of I/O region */
+	metal_phys_addr_t       page_mask;  /**< page mask of I/O region */
+	unsigned int            mem_flags;  /**< memory attribute of the
+	                                         I/O region */
+	struct metal_io_ops     ops;        /**< I/O region operations */
+};
+
+
+/** Libmetal device structure. */
+struct metal_device {
+	const char             *name;       /**< Device name */
+	struct metal_bus       *bus;        /**< Bus that contains device */
+	unsigned               num_regions; /**< Number of I/O regions in
+	                                      device */
+	struct metal_io_region regions[METAL_MAX_DEVICE_REGIONS]; /**< Array of
+	                                                I/O regions in device*/
+	struct metal_list      node;       /**< Node on bus' list of devices */
+	int                    irq_num;    /**< Number of IRQs per device */
+	void                   *irq_info;  /**< IRQ ID */
+};
+```
+
+#### Remoteproc data struct
+
+```
+struct remoteproc {
+	struct metal_device dev;       /**< Each remoteproc has a device, each device knows its memories regions */
+	metal_mutex_t lock;            /**< mutex lock */
+	void *rsc_table;               /**< pointer to resource table */
+	size_t rsc_len;                /**< length of the resoruce table */
+	struct remoteproc_ops *ops;    /**< pointer to remoteproc operation */
+	metal_phys_addr_t bootaddr;    /**< boot address */
+	struct loader_ops *loader_ops; /**< image loader operation */
+	unsigned int state;            /**< remoteproc state */
+	struct metal_list vdevs;       /**< list of vdevs  (can we limited to one for code size but linux and resource table supports multiple */
+	void *priv;                    /**< remoteproc private data */
+};
+
+struct remoteproc_vdev {
+	struct metal_list node;          /**< node */
+	struct remoteproc *rproc;        /**< pointer to the remoteproc instance */
+	struct virtio_dev;               /**< virtio device */
+	uint32_t notify_id;              /**< virtio device notification ID */
+	void *vdev_rsc;                  /**< pointer to the vdev space in resource table */
+	struct metal_io_region *vdev_io; /**< pointer to the vdev space I/O region */ 
+	int vrings_num;                  /**< number of vrings */
+	struct rproc_vrings[1];          /**< vrings array */
+};
+
+struct remoteproc_vring {
+	struct remoteproc_vdev *rpvdev;  /**< pointer to the remoteproc vdev */
+	uint32_t notify_id;              /**< vring notify id */
+	size_t len;                      /**< vring length */
+	uint32_t alignment;              /**< vring alignment */
+	void *va;                        /**< vring start virtual address */
+	struct metal_io_region *io;      /**< pointer to the vring I/O region */
+};
+```
+
+#### Virtio Data struct
+
+```
+struct virtio_dev {
+	int index;                               /**< unique position on the virtio bus */
+	struct virtio_device_id id;              /**< the device type identification (used to match it with a driver). */
+	struct metal_device *dev;                /**< do we need this in virtio device ? */
+	metal_spinlock lock;                     /**< spin lock */
+	uint64_t features;                       /**< the features supported by both ends. */
+	unsigned int role;                       /**< if it is virtio backend or front end. */
+	void (*rst_cb)(struct virtio_dev *vdev); /**< user registered virtio device callback */
+	void *priv;                              /**< pointer to virtio_dev private data */
+	int vrings_num;                          /**< number of vrings */
+	struct virtqueue vqs[1];                 /**< array of virtqueues */
+};
+
+struct virtqueue {
+	char vq_name[VIRTQUEUE_MAX_NAME_SZ];    /**< virtqueue name */
+	struct virtio_device *vdev;             /**< pointer to virtio device */
+	uint16_t vq_queue_index;
+	uint16_t vq_nentries;
+	uint32_t vq_flags;
+	int vq_alignment;
+	int vq_ring_size;
+	boolean vq_inuse;
+	void *vq_ring_mem;
+	void (*callback) (struct virtqueue * vq); /**< virtqueue callback */
+	void (*notify) (struct virtqueue * vq);   /**< virtqueue notify remote function */
+	int vq_max_indirect_size;
+	int vq_indirect_mem_size;
+	struct vring vq_ring;
+	uint16_t vq_free_cnt;
+	uint16_t vq_queued_cnt;
+	struct metal_io_region *buffers_io; /**< buffers shared memory */
+
+	/*
+	 * Head of the free chain in the descriptor table. If
+	 * there are no free descriptors, this will be set to
+	 * VQ_RING_DESC_CHAIN_END.
+	 */
+	uint16_t vq_desc_head_idx;
+
+	/*
+	 * Last consumed descriptor in the used table,
+	 * trails vq_ring.used->idx.
+	 */
+	uint16_t vq_used_cons_idx;
+
+	/*
+	 * Last consumed descriptor in the available table -
+	 * used by the consumer side.
+	 */
+	uint16_t vq_available_idx;
+
+	uint8_t padd;
+	/*
+	 * Used by the host side during callback. Cookie
+	 * holds the address of buffer received from other side.
+	 * Other fields in this structure are not used currently.
+	 * Do we needed??/
+	struct vq_desc_extra {
+		void *cookie;
+		struct vring_desc *indirect;
+		uint32_t indirect_paddr;
+		uint16_t ndescs;
+	} vq_descx[0];
+};
+
+struct vring {
+	unsigned int num;   /**< number of buffers of the vring */
+	struct vring_desc *desc;
+	struct vring_avail *avail;
+	struct vring_used *used;
+};
+```
+
+#### RPMsg Data struct
+
+```
+struct rpmsg_virtio_device {
+	struct virtio_dev *vdev;           /**< pointer to the virtio device */
+	struct virtqueue *rvq;             /**< pointer to receive virtqueue */
+	struct virtqueue *svq;             /**< pointer to send virtqueue */
+	int buffers_number;                /**< number of shared buffers */
+	struct metal_io_region *shbuf_io;  /**< pointer to the shared buffer I/O region */
+	void *shbuf;
+	int (*new_endpoint_cb)(const char *name, uint32_t addr); /**< name service announcement user designed callback which is used for when there is a name service announcement, there is no local endpoints waiting to bind */
+	struct metal_list endpoints;       /**< list of endpoints */
+};
+
+struct rpmsg_endpoint {
+	char name[SERVICE_NAME_SIZE];
+	struct rpmsg_virtio_dev *rvdev;                                                                           /**< pointer to the RPMsg virtio device */
+	uint32_t addr;                                                                                            /**< endpoint local address */
+	uint32_t dest_addr;                                                                                       /**< endpoint default target address */
+	int (*cb)(struct rpmsg_endpoint *ept, void *data, struct metal_io_region *io, size_t len, uint32_t addr); /**< endpoint callback */
+	void (*destroy)(struct rpmsg_endpoint *ept);                                                              /**< user registerd endpoint destory callback */
+	/* Whether we need another callback for ack ns announcement? */
+};
+```
+
 
 
 ## Tiny OS 移植
@@ -551,6 +741,7 @@ __weak void application_entry(void *arg)
 
 后续可能会用到的源码：`platform\xx\st` 下有有关 ST 的 HAL 实现，但是目前还没有针对 stm32mp1xx 的。但是查看 `platform/hal/st/stm32f1xx/src/tos_hal_uart.c` 和 `platform/hal/st/stm32f4xx/src/tos_hal_uart.c` 后，发现并没有多大的区别，只是 stm32f1xx 板子上的 `HAL_UART_Transmit()` 函数会返回状态值，可以判断是否传输成功，那么对 stm32mp1xx，用到的时候自己去看着改一下就行了。
 
+应该还有一些常量和宏的定义可能需要修改但是目前还没有用到。
 
 
 
@@ -589,3 +780,7 @@ __weak void application_entry(void *arg)
 
 
 
+
+
+
+ <Comment lang="zh-CN"/> 

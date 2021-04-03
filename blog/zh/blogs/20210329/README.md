@@ -1,0 +1,547 @@
+---
+layout: ContentLayout.vue
+title: BPF和eBPF （续：实现相关）
+tag: 笔记
+---
+
+[[toc]]
+
+# BPF 和 eBPF （续：实现相关）
+
+续上一篇[笔记](https://forsworns.github.io/zh/blogs/20210311/)，这次记录一些实践相关的内容。不再区分classical BPF和eBPF，统称BPF。
+
+## Linux内核
+
+Linux 内核中的 BPF 实现有两个项目，分别都只有一条独立的master分支（避免维护时 rebase 起来混乱），[bpf](https://kernel.googlesource.com/pub/scm/linux/kernel/git/bpf/bpf) 分支和 [bpf-next](https://kernel.googlesource.com/pub/scm/linux/kernel/git/bpf/bpf-next/) 分支。类似于 net 分支和 net-next 分支，bpf 分支是较为固定的，用来做些修补工作；bpf-next 是用来开发一些之后的 feature，或者做改进用的分支。源码在`/kernel/bpf` 下。
+
+文档在 `/Documentation/bpf/btf.rst` 。
+
+`/include/uapi/linux/bpf_common.h` 和 `/include/uapi/linux/bpf.h` 定义了指令集。
+
+`/samples/bpf` 是一些 bpf 相关的样例（开发时的测试代码不应该放在这个目录下，因为逻辑可能比一般的样例复杂，需要测试边界情况），
+
+`/tools/bpf/bpftool` 下面放一些用户空间用来 debug ebpf 程序的工具。
+
+`/tools/testing/selftests/bpf` 下是测试代码。
+
+对 BPF 指令的测试写在 `/lib/test_bpf.c` 和 `/lib/test_verifier.c` 中。
+
+测试 BPF（相关文档为 `/Documentation/dev-tools/kselftest.rst` ）：
+
+```bash
+cd tools/testing/selftests/bpf/
+make
+sudo ./test_verifier
+# This will generate `Summary: 418 PASSED, 0 FAILED`
+# to run all of the tests
+sudo make run_tests
+```
+
+`llc --version` 查看 LLVM 是否支持 BPF：查看输出的 `Registered Targets`。
+
+`llc -march bpf -mcpu=help` 可以用来查看和设置支持的 BPF 指令集。
+
+在内核中，BPF 相关的调用都是通过一个核心的系统调用 `bpf()` 来执行的，例如加载程序到内核、管理 BPF maps、管理 map entries、程序和 map 的持久化（通过 [Pinning](#Object-Pinning) 实现）等操作。
+
+在内核中的具体流程如下：
+
+![](image-20210330124500996.png)
+
+![](image-20210330124647057.png)
+
+BPF 在内核中的执行都是事件驱动的，例如：
+
+- 挂载了 BPF 程序的网络设备将会在它接收到包的时候执行程序
+- 内核地址上挂载了 BPF 程序的 kprobe 时，只要该地址的程序执行了，就会触发 kprobe 的回调函数，接着触发 BPF 程序
+
+示意图如下：
+
+![](image-20210330124601138.png)
+
+
+## 指令集
+
+这部分翻译自 uBPF 的文档，它是上面提到的一个 BPF JIT Complier 的实现。
+
+BPF 使用了 11 个 64位寄存器，32位称为半寄存器（subregister）和一个程序计数器（program counter），一个大小为 512 字节的 BPF 栈。寄存器以 r0 - r10 命名，r0 - r9 是指令可以使用的寄存器。默认情况下，运行模式是 64 位的。
+
+BPF 程序指令都是64位的，假设 BPF 虚拟机指令集的编码顺序和宿主机的顺序相同，于是在下面的描述中不关心大端小端的问题。
+
+所有的 BPF 指令都有着相同的编码方式：
+
+```
+msb                                                        lsb
++------------------------+----------------+----+----+--------+
+|immediate               |offset          |src |dst |opcode  |
++------------------------+----------------+----+----+--------+
+```
+
+从最低位到最高位分别是：
+
+- 8 位的 opcode，有 BPF_X 类型的基于寄存器的指令，也有 BPF_K 类型的基于立即数的指令
+- 4 位的目标寄存器 (dst)
+- 4 位的原始寄存器 (src)
+- 16 位的偏移（有符号），是相对于栈、映射值（map values）、数据包（packet data）等的相对偏移量
+- 32 位的立即数 (imm)（有符号）
+
+大多数指令都不会使用所有的域，未被使用的部分就会被置为0。
+
+opcode 中最低的 3 位是 `instruction class` (`cls`)，将 opcodes 分了组，具体为下面几种
+
+LD/LDX/ST/STX opcode 具有如下结构
+
+```
+msb      lsb
++---+--+---+
+|mde|sz|cls|
++---+--+---+
+```
+
+其中 `sz` 域指定了内存位置的大小，`mde` 域是内存获取模式，uBPF 只支持通用的 "MEM" 获取方式。
+
+ALU/ALU64/JMP opcode 具有如下结构
+
+```
+msb      lsb
++----+-+---+
+|op  |s|cls|
++----+-+---+
+```
+
+如果 `s` 位是 0，那么 source operand 就会是指令中立即数 `imm` 对应的域。如果 `s` 是 1，那么 source operand 就会是指令中 `src` 域。 `op` 域则指定了将要执行哪个 ALU 或 branch 操作。
+
+### ALU 指令
+
+#### 64-bit
+
+| Opcode | Mnemonic      | Pseudocode               |
+| ------ | ------------- | ------------------------ |
+| 0x07   | add dst, imm  | dst += imm               |
+| 0x0f   | add dst, src  | dst += src               |
+| 0x17   | sub dst, imm  | dst -= imm               |
+| 0x1f   | sub dst, src  | dst -= src               |
+| 0x27   | mul dst, imm  | dst *= imm               |
+| 0x2f   | mul dst, src  | dst *= src               |
+| 0x37   | div dst, imm  | dst /= imm               |
+| 0x3f   | div dst, src  | dst /= src               |
+| 0x47   | or dst, imm   | dst \|= imm              |
+| 0x4f   | or dst, src   | dst \|= src              |
+| 0x57   | and dst, imm  | dst &= imm               |
+| 0x5f   | and dst, src  | dst &= src               |
+| 0x67   | lsh dst, imm  | dst <<= imm              |
+| 0x6f   | lsh dst, src  | dst <<= src              |
+| 0x77   | rsh dst, imm  | dst >>= imm (logical)    |
+| 0x7f   | rsh dst, src  | dst >>= src (logical)    |
+| 0x87   | neg dst       | dst = -dst               |
+| 0x97   | mod dst, imm  | dst %= imm               |
+| 0x9f   | mod dst, src  | dst %= src               |
+| 0xa7   | xor dst, imm  | dst ^= imm               |
+| 0xaf   | xor dst, src  | dst ^= src               |
+| 0xb7   | mov dst, imm  | dst = imm                |
+| 0xbf   | mov dst, src  | dst = src                |
+| 0xc7   | arsh dst, imm | dst >>= imm (arithmetic) |
+| 0xcf   | arsh dst, src | dst >>= src (arithmetic) |
+
+#### 32-bit
+
+这些指令只使用低的 32 位，并且会将目标寄存器的高 32 位置零。
+
+| Opcode | Mnemonic        | Pseudocode               |
+| ------ | --------------- | ------------------------ |
+| 0x04   | add32 dst, imm  | dst += imm               |
+| 0x0c   | add32 dst, src  | dst += src               |
+| 0x14   | sub32 dst, imm  | dst -= imm               |
+| 0x1c   | sub32 dst, src  | dst -= src               |
+| 0x24   | mul32 dst, imm  | dst *= imm               |
+| 0x2c   | mul32 dst, src  | dst *= src               |
+| 0x34   | div32 dst, imm  | dst /= imm               |
+| 0x3c   | div32 dst, src  | dst /= src               |
+| 0x44   | or32 dst, imm   | dst \|= imm              |
+| 0x4c   | or32 dst, src   | dst \|= src              |
+| 0x54   | and32 dst, imm  | dst &= imm               |
+| 0x5c   | and32 dst, src  | dst &= src               |
+| 0x64   | lsh32 dst, imm  | dst <<= imm              |
+| 0x6c   | lsh32 dst, src  | dst <<= src              |
+| 0x74   | rsh32 dst, imm  | dst >>= imm (logical)    |
+| 0x7c   | rsh32 dst, src  | dst >>= src (logical)    |
+| 0x84   | neg32 dst       | dst = -dst               |
+| 0x94   | mod32 dst, imm  | dst %= imm               |
+| 0x9c   | mod32 dst, src  | dst %= src               |
+| 0xa4   | xor32 dst, imm  | dst ^= imm               |
+| 0xac   | xor32 dst, src  | dst ^= src               |
+| 0xb4   | mov32 dst, imm  | dst = imm                |
+| 0xbc   | mov32 dst, src  | dst = src                |
+| 0xc4   | arsh32 dst, imm | dst >>= imm (arithmetic) |
+| 0xcc   | arsh32 dst, src | dst >>= src (arithmetic) |
+
+#### Byteswap 指令
+
+| Opcode           | Mnemonic | Pseudocode         |
+| ---------------- | -------- | ------------------ |
+| 0xd4 (imm == 16) | le16 dst | dst = htole16(dst) |
+| 0xd4 (imm == 32) | le32 dst | dst = htole32(dst) |
+| 0xd4 (imm == 64) | le64 dst | dst = htole64(dst) |
+| 0xdc (imm == 16) | be16 dst | dst = htobe16(dst) |
+| 0xdc (imm == 32) | be32 dst | dst = htobe32(dst) |
+| 0xdc (imm == 64) | be64 dst | dst = htobe64(dst) |
+
+### Memory 指令
+
+| Opcode | Mnemonic              | Pseudocode                      |
+| ------ | --------------------- | ------------------------------- |
+| 0x18   | lddw dst, imm         | dst = imm                       |
+| 0x20   | ldabsw src, dst, imm  | See kernel documentation        |
+| 0x28   | ldabsh src, dst, imm  | ...                             |
+| 0x30   | ldabsb src, dst, imm  | ...                             |
+| 0x38   | ldabsdw src, dst, imm | ...                             |
+| 0x40   | ldindw src, dst, imm  | ...                             |
+| 0x48   | ldindh src, dst, imm  | ...                             |
+| 0x50   | ldindb src, dst, imm  | ...                             |
+| 0x58   | ldinddw src, dst, imm | ...                             |
+| 0x61   | ldxw dst, [src+off]   | dst = *(uint32_t *) (src + off) |
+| 0x69   | ldxh dst, [src+off]   | dst = *(uint16_t *) (src + off) |
+| 0x71   | ldxb dst, [src+off]   | dst = *(uint8_t *) (src + off)  |
+| 0x79   | ldxdw dst, [src+off]  | dst = *(uint64_t *) (src + off) |
+| 0x62   | stw [dst+off], imm    | *(uint32_t *) (dst + off) = imm |
+| 0x6a   | sth [dst+off], imm    | *(uint16_t *) (dst + off) = imm |
+| 0x72   | stb [dst+off], imm    | *(uint8_t *) (dst + off) = imm  |
+| 0x7a   | stdw [dst+off], imm   | *(uint64_t *) (dst + off) = imm |
+| 0x63   | stxw [dst+off], src   | *(uint32_t *) (dst + off) = src |
+| 0x6b   | stxh [dst+off], src   | *(uint16_t *) (dst + off) = src |
+| 0x73   | stxb [dst+off], src   | *(uint8_t *) (dst + off) = src  |
+| 0x7b   | stxdw [dst+off], src  | *(uint64_t *) (dst + off) = src |
+
+### Branch 指令
+
+| Opcode | Mnemonic            | Pseudocode                       |
+| ------ | ------------------- | -------------------------------- |
+| 0x05   | ja +off             | PC += off                        |
+| 0x15   | jeq dst, imm, +off  | PC += off if dst == imm          |
+| 0x1d   | jeq dst, src, +off  | PC += off if dst == src          |
+| 0x25   | jgt dst, imm, +off  | PC += off if dst > imm           |
+| 0x2d   | jgt dst, src, +off  | PC += off if dst > src           |
+| 0x35   | jge dst, imm, +off  | PC += off if dst >= imm          |
+| 0x3d   | jge dst, src, +off  | PC += off if dst >= src          |
+| 0xa5   | jlt dst, imm, +off  | PC += off if dst < imm           |
+| 0xad   | jlt dst, src, +off  | PC += off if dst < src           |
+| 0xb5   | jle dst, imm, +off  | PC += off if dst <= imm          |
+| 0xbd   | jle dst, src, +off  | PC += off if dst <= src          |
+| 0x45   | jset dst, imm, +off | PC += off if dst & imm           |
+| 0x4d   | jset dst, src, +off | PC += off if dst & src           |
+| 0x55   | jne dst, imm, +off  | PC += off if dst != imm          |
+| 0x5d   | jne dst, src, +off  | PC += off if dst != src          |
+| 0x65   | jsgt dst, imm, +off | PC += off if dst > imm (signed)  |
+| 0x6d   | jsgt dst, src, +off | PC += off if dst > src (signed)  |
+| 0x75   | jsge dst, imm, +off | PC += off if dst >= imm (signed) |
+| 0x7d   | jsge dst, src, +off | PC += off if dst >= src (signed) |
+| 0xc5   | jslt dst, imm, +off | PC += off if dst < imm (signed)  |
+| 0xcd   | jslt dst, src, +off | PC += off if dst < src (signed)  |
+| 0xd5   | jsle dst, imm, +off | PC += off if dst <= imm (signed) |
+| 0xdd   | jsle dst, src, +off | PC += off if dst <= src (signed) |
+| 0x85   | call imm            | Function call                    |
+| 0x95   | exit                | return r0                        |
+
+更加详细的协议参考[内核 bpf 相关文档](#Reference)
+
+## 常见 bpf_prog_type 定义
+
+| **bpf_prog_type**               | **BPF prog** 入口参数（R1)                                   | **程序类型**                                                 |
+| ------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| **BPF_PROG_TYPE_SOCKET_FILTER** | **struct __sk_buff**                                         | 用于过滤进出口网络报文，功能上和  cBPF 类似。                |
+| **BPF_PROG_TYPE_KPROBE**        | **struct** **pt_regs**                                       | 用于  kprobe 功能的  BPF 代码。                              |
+| **BPF_PROG_TYPE_TRACEPOINT**    | 这类  BPF 的参数比较特殊，根据  tracepoint 位置的不同而不同。 | 用于在各个  tracepoint 节点运行。                            |
+| **BPF_PROG_TYPE_XDP**           | **struct** **xdp_md**                                        | 用于控制  XDP(eXtreme  Data Path)的 BPF  代码。              |
+| **BPF_PROG_TYPE_PERF_EVENT**    | **struct bpf_perf_event_data**                               | 用于定义  perf event 发生时回调的  BPF 代码。                |
+| **BPF_PROG_TYPE_CGROUP_SKB**    | **struct __sk_buff**                                         | 用于在  network cgroup 中运行的  BPF 代码。功能上和  Socket_Filter 近似。具体用法可以参考范例  test_cgrp2_attach。 |
+| **BPF_PROG_TYPE_CGROUP_SOCK**   | **struct bpf_sock**                                          | 另一个用于在  network cgroup  中运行的 BPF  代码，范例 test_cgrp2_sock2  中就展示了一个利用 BPF  来控制 host  和 netns  间通信的例子。 |
+
+与网络相关的有XDP、socket、tc等。
+
+
+## Helper Function
+
+Helper functions 是一些与内核交互的常用 API， 可以从内核获取或写入数据。不同的 BPF 程序类型 bpf_prog_type 可用的 helper function 不同，例如与 socket 有关的 BPF 函数就只允许使用一小部分的 helpers，而与 tc （traffic control 的缩写，更加靠近传输层，而且此时包都还没解析）相关的 BPF 函数可以调用更多的 helpers。
+
+内核将 helper 函数抽象到了宏 `BPF_CALL_0()` 到 `BPF_CALL_5()`，类似于系统调用。下面这个例子就节选自一个用来更新映射元素的 helper function，它调用了映射上实现的相关的回调函数
+
+```c
+// 注意这是一个宏
+BPF_CALL_4(bpf_map_update_elem, struct bpf_map *, map, void *, key,
+           void *, value, u64, flags)
+{
+    WARN_ON_ONCE(!rcu_read_lock_held());
+    return map->ops->map_update_elem(map, key, value, flags);
+}
+
+const struct bpf_func_proto bpf_map_update_elem_proto = {
+    .func           = bpf_map_update_elem,
+    .gpl_only       = false,
+    .ret_type       = RET_INTEGER,
+    .arg1_type      = ARG_CONST_MAP_PTR,
+    .arg2_type      = ARG_PTR_TO_MAP_KEY,
+    .arg3_type      = ARG_PTR_TO_MAP_VALUE,
+    .arg4_type      = ARG_ANYTHING,
+};
+
+```
+
+这种提前定义宏的好处是：在 cBPF 中，当添加新的 helper时，JIT 需要对这种扩展做支持；但是在 eBPF 中，底层的 BPF 寄存器的分配已经提前做好了，JIT 此时只需要触发一个调用指令。因此 eBPF 的 helper functions 更容易拓展。
+
+helper functions 数量众多，可以参考附录中的[eBPF-Helpers](https://github.com/iovisor/bpf-docs/blob/master/bpf_helpers.rst/)。
+
+## Verifier
+
+上面 helper function 代码中的 `bpf_func_proto` 是用来传递 verifier 的必要数据的，用来验证 helper 提供的参数类型和当下 BPF 寄存器中的内容符合。参数类型可以是任意的值，也可以是针对一个 buffer 的 <指针，大小> 的数据对，告诉 helper 它应该从哪里读取数据或写入数据， verifier 会验证 buffer 之前是否有被初始化过。
+
+In-kernel Verifier还会验证：
+
+- 对注入代码进行一次 DAG(Directed Acyclic Graph，有向无环图)检测，以保证其中没有循环存在
+- eBPF 的代码长度上限为 4096 条 BPF 指令（在内核 5.1 版本以上，这个上限提升到了 100 万）。
+- 存在可能会跳出 eBPF 代码范围的 JMP
+- 分支(branch)不允许超过 1024 个；经检测的指令数也必须在 96K 以内
+- 支持运行尾调用（tail calls），即在 eBPF 程序末尾调用另一个 eBPF 程序，但是也是有限制的，最多可以嵌套 33 次 尾调用。
+
+## Maps
+
+BPF 映射是内核中的键值型数据结构，他们能够从 BPF 程序中获取，来在不同的 BPF 调用之间传递状态信息。他们也能通过用户空间的文件描述符来获取，也能在 BPF 程序或用户空间的应用之间共享。注意共享 BPF 映射的 BPF 程序不一定是相同的程序类型，例如，一个 tracing 程序也可能可以和网络程序共享映射，当下一个单独的 BPF 程序最多可以同时获取到 64 个不同的映射。
+
+![bpf_map.png](./bpf_map.png)
+
+映射的实现是在内核中，有通用的，也有仅能在少数 helper functions 中使用的。通用的映射有`BPF_MAP_TYPE_HASH`, `BPF_MAP_TYPE_ARRAY`, `BPF_MAP_TYPE_PERCPU_HASH`, `BPF_MAP_TYPE_PERCPU_ARRAY`, `BPF_MAP_TYPE_LRU_HASH`, `BPF_MAP_TYPE_LRU_PERCPU_HASH` and `BPF_MAP_TYPE_LPM_TRIE`。他们都是用的是相同的 BPF helper functions 来实现增删查改，同时针对不同的语义和应用特征实现了不同的后端操作。
+
+现有的不通用的映射有 `BPF_MAP_TYPE_PROG_ARRAY`, `BPF_MAP_TYPE_PERF_EVENT_ARRAY`, `BPF_MAP_TYPE_CGROUP_ARRAY`, `BPF_MAP_TYPE_STACK_TRACE`, `BPF_MAP_TYPE_ARRAY_OF_MAPS`, `BPF_MAP_TYPE_HASH_OF_MAPS`。例如，`BPF_MAP_TYPE_PROG_ARRAY` 是一个包含有其他 BPF 程序的数组， `BPF_MAP_TYPE_ARRAY_OF_MAPS` 和 `BPF_MAP_TYPE_HASH_OF_MAPS` 都持有着指向其他映射的指针，为了在运行时能原子地更换 BPF 映射。通过这种实现满足了这个特殊的需求。因为状态是需要在不同的 BPF 程序调用中共享的，所以不能单独通过一个 BPF helper function实现，而是要用这种方法。
+
+## Object Pinning
+
+BPF 映射和程序是一种内核资源，只能通过文件描述符相关的 API 来获取它们。更底层的是匿名的索引节点（内核中的 inodes）。这种做法有许多优势和劣势：
+
+用户空间的应用程序能够使用大多数文件描述符相关的 API，文件描述符在 Unix 内部的 socket 通讯中是透明的，但是与此同时，文件描述符又只能在程序的生命周期内使用，这使得映射的共享难以实现。
+
+因此它带来了一系列棘手的复杂情况，例如在 iproute2 中，tc 和 XDP 在内核中启动并加载后最终会消亡掉。这样不可能从用户空间获取映射了。但是从用户空间获取映射是很有用的，例如，当映射在 data path 的入口位置和出口位置之间共享时。同时，第三方应用也可能想要在 BPF 程序运行时去监测或更新映射内容。
+
+![](bpf_fs.png)
+
+为了突破这种限制，实现了一小部分内核空间的 BPF 文件系统。在这里， BPF 映射和程序能够被钉在上面，也叫作 object pinning。BPF 系统调用也进行了一定拓展，支持了两个新的命令，可以支持钉上（`BPF_OBJ_PIN`）或获取（`BPF_OBJ_GET`）这两种行为。 
+
+BPF 的文件系统不是单例，它支持挂载多个实例、硬或软链接。
+
+## Tail Calls
+
+尾调用能够允许一个 BPF 程序去调用另一个，不需要返回旧的程序中。这种调用方式开销很小，和函数调用不同，它在是用 long jump 命令实现的，可以直接复用相同的栈帧（即常见的尾递归优化）。
+
+![](./bpf_tailcall.png)
+
+这样的程序能够独立进行验证。但是只有相同类型的 BPF 程序（即 bpf_prog_type 相同）才能进行尾调用；同时在 JIT 方面也要匹配， 即尾调用中 JIT 代码只能接在 JIT 代码后，直接解释的代码只能接在直接解释的代码后，不能在另一类代码后进行尾调用。
+
+尾调用相关操作有两部分：第一部分是建立一个叫做程序数组的特殊的映射（`BPF_MAP_TYPE_PROG_ARRAY`），能在用户空间进行键值数据的修改，值就是尾调用 BPF 程序的文件描述符。第二部分是`bpf_tail_call()`帮助函数，它需要传入上下文（context）、程序数组的引用、和想查询的键。内核会把这个帮助函数内联到特定的 BPF 指令中。这个程序数组在用户空间是 write-only 的。
+
+内核根据提供的文件描述符查找相关的 BPF 程序，原子地替换掉给定的映射槽处的程序指针。当在映射中按照所给键值找不到指针时，内核会跳过它然后接着执行`bpf_tail_call()` 之后的函数。尾调用很有用，例如在解析网络数据包时，就可以使用尾调用逐层解析。
+
+## BPF to BPF Calls
+
+![](./bpf_call.png)	
+
+除了 BPF helper 函数和 BPF 尾调用，一个新添加的特性是 BPF 程序调用 BPF 程序。在这个特性被引入内核之前，一般 BPF C 程序需要定义一些可重用代码，单独存在一个头文件中，他们都是 `always_inline` 的。使用 LLVM 进行编译的时候，这些可重用代码会被内联到需要的地方，导致生成的代码体积很大。具体形式如下：
+
+```C
+#include <linux/bpf.h>
+
+#ifndef __section
+# define __section(NAME)                  \
+   __attribute__((section(NAME), used))
+#endif
+
+#ifndef __inline
+# define __inline                         \
+   inline __attribute__((always_inline))
+#endif
+
+static __inline int foo(void)
+{
+    return XDP_DROP;
+}
+
+__section("prog")
+int xdp_drop(struct xdp_md *ctx)
+{
+    return foo();
+}
+
+char __license[] __section("license") = "GPL";
+```
+
+这么干的原因就是在 BPF 验证器、加载器、解释器、JIT 中都缺少对函数的支持。从Linux 4.16， LLVM 6.0 开始，就支持这个特性了。BPF 程序不必再到处使用 `always_inline` 标签了，前面的代码可以被更自然地表达为
+
+```C
+#include <linux/bpf.h>
+
+#ifndef __section
+# define __section(NAME)                  \
+   __attribute__((section(NAME), used))
+#endif
+
+static int foo(void)
+{
+    return XDP_DROP;
+}
+
+__section("prog")
+int xdp_drop(struct xdp_md *ctx)
+{
+    return foo();
+}
+
+char __license[] __section("license") = "GPL";
+```
+
+主流的 BPF JIT 编译器例如在 `x86_64` 和 `arm64` 上的会支持 BPF 到 BPF 的调用，其他则会添加类似的特性。这个特性对性能优化意义重大，因为它显著减少了生成的 BPF 代码的大小。因此从指令缓存的角度，这样生成的机器码对 CPU 更加友好。
+
+BPF 函数之间的调用方法和 BPF helper 函数的调用方法一致，意味着从 `r1` 到 `r5` 这五个寄存器都是用来向被调用的函数传递参数的（回忆：BPF helper 函数中最多允许5个函数参数），函数运行结果返回到寄存器`r0`。寄存器 `r1` 到 `r5` 都是暂存寄存器，而寄存器`r6` 到 `r9` 则可以在不同调用之间保存数据。最大允许的调用深度是8。一个调用者可以传递指针（如调用者的栈帧）给被调用方，反过来不行。
+
+BPF JIT 编译器为每个函数编译出单独的映像，JIT 最终会修正映像中的函数调用地址将他们串联起来。事实证明，这样对 JIT 进行的改动最小，因为使用这种方法 JIT 可以将BPF到BPF的调用视为常规的 BPF helper 函数调用。
+
+知道 Linux 5.9，BPF 尾调用和 BPF 子程序都相互排斥，使用了尾调用的 BPF 程序不能使用 BPF 子程序来减小生成的程序映像大小、加速程序加载。之后的 Linux 5.10 最终允许了用户能够同时利用二者的优点，使得 BPF 子程序和尾递归可以同时使用了。
+
+这个改进是有代价的，将这两个特性混合在一起可能会造成内核堆栈溢出。为了一窥其中奥秘，可以看下面这张图片，它就解释了二者是如何混合的：
+
+![bpf_tailcall_subprograms.png](./bpf_tailcall_subprograms.png)
+
+尾调用不改变栈顶指针位置，在真正跳转到目标程序地址之前，会把当前栈帧释放掉。正如我们在上面例子里看到的，如果一个尾调用在子函数 `subfunc1` 中发生了，调用了`func2`，那么 `func1` 的栈帧将会在栈中存在下去。一旦最终的 `func3` 函数终结了，所有前面的栈帧都会被展开控制权会回到 BPF 函数调用方。
+
+内核引入了别的逻辑来检测这两个特性的结合。在上图的整个链式调用中，对每个子程序的栈的大小限制为 256 字节，注意如果验证器检测到了 BPF2BPF 调用，那么主函数也会被视为是一个子函数（即整个链上大家都有这个栈大小的限制）。凭借这个限制，BPF 程序调用链最多能够消耗 8KB 大小的栈空间。这个上限的计算方式是每个栈帧 256 字节，乘上尾调用上限 33。没有这个限制，BPF 程序能够使用512 字节的栈空间，则最大可能会占用 16KB 的栈，最终可能会在某些架构的机器上就堆栈溢出了。
+
+另一个值得一提的点是这种特性的结合限制只在 x86-64 架构上得到了支持。
+
+### JIT
+
+![bpf_jit.png](./bpf_jit.png)
+
+64 位的 `x86_64`、 `arm64`、 `ppc64`、 `s390x`、 `mips64`、 `sparc64` 和 32 位的 `arm`、`x86_32` 架构都在内核中写好了eBPF JIT 编译器，他们都有着相同的特性，可以使用下面的方式激活
+
+```
+# echo 1 > /proc/sys/net/core/bpf_jit_enable
+```
+
+32 位的  `mips`、 `ppc` 和`sparc` 的架构现在有一个 cBPF JIT 编译器。上面提到的架构也依然有 cBPF JIT，其他架构没有 JIT，只能通过内核中的解释器来跑。
+
+在内核源码树中，能够轻易地被找到 eBPF JIT 的相关支持，只需要 `git grep` 一下 `HAVE_EBPF_JIT`:
+
+```
+# git grep HAVE_EBPF_JIT arch/
+arch/arm/Kconfig:       select HAVE_EBPF_JIT   if !CPU_ENDIAN_BE32
+arch/arm64/Kconfig:     select HAVE_EBPF_JIT
+arch/powerpc/Kconfig:   select HAVE_EBPF_JIT   if PPC64
+arch/mips/Kconfig:      select HAVE_EBPF_JIT   if (64BIT && !CPU_MICROMIPS)
+arch/s390/Kconfig:      select HAVE_EBPF_JIT   if PACK_STACK && HAVE_MARCH_Z196_FEATURES
+arch/sparc/Kconfig:     select HAVE_EBPF_JIT   if SPARC64
+arch/x86/Kconfig:       select HAVE_EBPF_JIT   if X86_64
+```
+
+JIT 编译器能够显著加速 BPF 程序的执行，因为相比于解释器他们减少了单指令的开销。通常指令都能够一一映射到底层架构上的原始指令上。这也减少了最终的可执行映像大小，因而对 CPU 指令缓存来说更为友好。特别是在复杂的 CISC 指令集下，例如 `x86`，JITs 都会被优化以生成最精悍的指令，来减少程序翻译后的大小。
+
+## JIT 的具体实现
+
+Linux 内核中当然是有 BPF 的 JIT Complier 实现的，但是内核代码浩如烟海。iovisor 组织用 C 重写了一个 [ubpf](https://github.com/iovisor/ubpf/)。类似的有仿照 ubpf 写的 rust 版本 [rbpf](https://github.com/qmonnet/rbpf)。
+
+### Hardening
+
+BPF 将整个 BPF 解释器映像（`struct bpf_prog`）和 JIT 编译出的映像（`struct bpf_binary_header`）在程序生命周期内在内核中是只读的，以防止潜在的代码损坏。例如出于内核的 bug，代码可能会损坏，进而导致内核宕机。
+
+支持将将映像设置为只读的架构能够通过下面的方式查看，同样是使用`git grep`：
+
+```
+$ git grep ARCH_HAS_SET_MEMORY | grep select
+arch/arm/Kconfig:    select ARCH_HAS_SET_MEMORY
+arch/arm64/Kconfig:  select ARCH_HAS_SET_MEMORY
+arch/s390/Kconfig:   select ARCH_HAS_SET_MEMORY
+arch/x86/Kconfig:    select ARCH_HAS_SET_MEMORY
+```
+
+选项 `CONFIG_ARCH_HAS_SET_MEMORY` 不是可配置的，它总是内置的。其他架构在未来也可能会支持这一特性。
+
+对于`x86_64` JIT 编译器，假设它在写操作会设置  `CONFIG_RETPOLINE` 项（通常现代操作系统都会这么干），那么JIT 地从尾调用中编译 indirect jump 是通过一个 retpoline 来实现的（[retpoline](https://stackoverflow.com/questions/48089426/what-is-a-retpoline-and-how-does-it-work?r=SearchResults) 是用来缓解内核或跨进程内存泄露的，又称 [Spectre ](https://spectreattack.com/spectre.pdf)攻击，参考[lkml 邮件](https://lkml.org/lkml/2018/1/3/780)）。
+
+当 `/proc/sys/net/core/bpf_jit_harden` 设置为 `1` 的时候，另一个针对非管理员用户的 JIT 编译的 hardening 操作生效了。这会稍微牺牲性能，以减少来自未信任的用户的潜在的攻击。即使牺牲了性能，表现仍然是比直接完全地使用解释器要好。
+
+当下，激活 hardening 后，使用 JIT 编译 BPF 程序，会屏蔽 BPF 程序中所有用户提供的 32 位和 64 位常量，以应对 JIT spraying attacks。JIT spraying attacks 会注入原生指令的 opcode 作为立即数。这会带来很大的问题，因为这些立即数是存储在可执行的内核内存区域中。如果因为某些内核 bug，程序计数器跳转到了被注入的指令处，可能会执行这些被注入的程序。
+
+JIT 常量屏蔽可以通过随机化真正的指令避免这种情况，意味着最后的指令运算通过重写指令，将一个基于立即数的指令码，转换到了基于寄存器的指令码。重写指令的方法共两步：加载一个被随机屏蔽的立即数 `rnd ^ imm` 到寄存器中，使用`rnd` 与寄存器中的值做异或，在寄存器中得到初始的 `imm` 立即数，能够用来做真正的指令运算。下面的例子展示了一个 load 指令操作，其他常见的指令也都是这么屏蔽的。在 hardening 禁用的情况下使用 JIT 编译一个程序的例子:
+
+```
+# echo 0 > /proc/sys/net/core/bpf_jit_harden
+
+  ffffffffa034f5e9 + <x>:
+  [...]
+  39:   mov    $0xa8909090,%eax
+  3e:   mov    $0xa8909090,%eax
+  43:   mov    $0xa8ff3148,%eax
+  48:   mov    $0xa89081b4,%eax
+  4d:   mov    $0xa8900bb0,%eax
+  52:   mov    $0xa810e0c1,%eax
+  57:   mov    $0xa8908eb4,%eax
+  5c:   mov    $0xa89020b0,%eax
+  [...]
+```
+
+相同的程序，当开启了 hardening 时，以非管理员用户加载 BPF 程序时，常量会被屏蔽：
+
+```
+# echo 1 > /proc/sys/net/core/bpf_jit_harden
+
+  ffffffffa034f1e5 + <x>:
+  [...]
+  39:   mov    $0xe1192563,%r10d
+  3f:   xor    $0x4989b5f3,%r10d
+  46:   mov    %r10d,%eax
+  49:   mov    $0xb8296d93,%r10d
+  4f:   xor    $0x10b9fd03,%r10d
+  56:   mov    %r10d,%eax
+  59:   mov    $0x8c381146,%r10d
+  5f:   xor    $0x24c7200e,%r10d
+  66:   mov    %r10d,%eax
+  69:   mov    $0xeb2a830e,%r10d
+  6f:   xor    $0x43ba02ba,%r10d
+  76:   mov    %r10d,%eax
+  79:   mov    $0xd9730af,%r10d
+  7f:   xor    $0xa5073b1f,%r10d
+  86:   mov    %r10d,%eax
+  89:   mov    $0x9a45662b,%r10d
+  8f:   xor    $0x325586ea,%r10d
+  96:   mov    %r10d,%eax
+  [...]
+```
+
+两个程序在语义上是等价的，除了原始代码中的立即数在第二个程序的反汇编中都无法再看得到了。
+
+与此同时，hardening 也禁用了对管理员用户的 JIT kallsyms exposure，JIT 映像的地址不再暴露给 `/proc/kallsyms` 。
+
+另外， Linux 内核也提供了选项 `CONFIG_BPF_JIT_ALWAYS_ON`，从内核中移除整个 BPF 解释器并永久地激活 JIT 编译器。在使用基于 VM 的设置的 Spectre v2 环境下，当客户机不打算使用宿主机内核的 BPF 解释器来装载 Spectre 攻击的时候，这也被发展成了内核移植的一部分。对于基于容器的环境，选项 `CONFIG_BPF_JIT_ALWAYS_ON` 是可选的，但是在 JIT 被激活的情况下，解释器可能也被编译出来了以减轻内核的复杂程度。因此，在主流的结构中，例如`x86_64` 和 `arm64` 中，对广泛使用的 JIT，通常也建议开启这个选项。
+
+最后，内核提供了一个选项来禁止非管理员用户使用 `bpf(2)` 系统调用，这是通过 `/proc/sys/kernel/unprivileged_bpf_disabled` sysctl knob 实现的。这是一个一次性的开关，意味着一旦设置为 `1`，没有其他选项能够把它变为 `0`，直到内核重启。当只设置 `CAP_SYS_ADMIN` 时，离开初始空间的管理员进程从这之后就能够使用 `bpf(2)` 系统调用。
+
+```
+# echo 1 > /proc/sys/kernel/unprivileged_bpf_disabled
+```
+
+### Offloads
+
+![bpf_offload.png](./bpf_offload.png)
+
+BPF 写的网络相关的程序，特别是 tc 和 XDP 相关程序，都有 offload-interface，可以脱离内核在网卡中执行 BPF 代码（直接在网卡中处理因而因而更加高效甚至不用内核参与）。
+
+当下，Netronome 的驱动 `nfp` 已经支持了通过 JIT 编译器将 BPF 程序编译到网卡上特定指令集。也支持了 BPF maps，因此在网卡上 BPF 程序也能实现映射的查询、更新和删除。
+
+# Reference 
+
+[BPF](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_devel_QA.rst) 开发QA：解释了两条bpf相关的内核分支的作用，规定了汇报bug、提交补丁的方法。
+
+Facebook 的 BPF 相关团队成员[博客](https://nakryiko.com/)，大部分内容都摘录、翻译自这里。
+
+[eBPF-Helpers](https://github.com/iovisor/bpf-docs/blob/master/bpf_helpers.rst/)，ebpf 程序的 API 函数文档，貌似和[这里的内容重复](https://man7.org/linux/man-pages/man7/bpf-helpers.7.html)。
+
+[Cilium 文档](https://docs.cilium.io/en/latest/bpf/) 详细讲解了 bpf 和 xdp。
+
+[iovisor eBPF spec](https://github.com/iovisor/bpf-docs/blob/master/eBPF.md) 列出了 eBPF opcode，项目是 iovisor 总结的系列文档、pre。
+
+[内核 bpf 相关文档](https://www.kernel.org/doc/Documentation/networking/filter.txt)
+

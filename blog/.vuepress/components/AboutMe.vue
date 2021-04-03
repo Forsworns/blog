@@ -145,6 +145,7 @@ export default {
           "See all I need is a whisper, in a world that only shouts",
           `We laughed and kept saying"see you soon",but inside we both knew we'd never see each other again.`,
           "I'm at a payphone trying to call home, all of my change I spent on you. Where have the times gone?",
+		  "I see Barsad, and Cly, Defarge, The Vengeance, the Jurymen, the Judge, long ranks of the new oppressors who have risen on the destruction of the old, perishing by this retributive instrument, before it shall cease out of its present use.",
           "Who's gonna rock you when the sun won't let you sleep? Who's waking up to drive you home when you're drunk and all alone? Who's gonna walk you through the dark side of the morning?",
         ],
         labels: [
