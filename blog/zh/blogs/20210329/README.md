@@ -8,9 +8,9 @@ tag: 笔记
 
 # BPF 和 eBPF （续：实现相关）
 
-续上一篇[笔记](https://forsworns.github.io/zh/blogs/20210311/)，这次记录一些实践相关的内容。不再区分classical BPF和eBPF，统称BPF。
+续上一篇[笔记](/zh/blogs/20210311/)，这次记录一些实践相关的内容。不再区分classical BPF和eBPF，统称BPF。
 
-## Linux内核
+## Linux 内核相关
 
 Linux 内核中的 BPF 实现有两个项目，分别都只有一条独立的master分支（避免维护时 rebase 起来混乱），[bpf](https://kernel.googlesource.com/pub/scm/linux/kernel/git/bpf/bpf) 分支和 [bpf-next](https://kernel.googlesource.com/pub/scm/linux/kernel/git/bpf/bpf-next/) 分支。类似于 net 分支和 net-next 分支，bpf 分支是较为固定的，用来做些修补工作；bpf-next 是用来开发一些之后的 feature，或者做改进用的分支。源码在`/kernel/bpf` 下。
 
@@ -41,13 +41,25 @@ sudo make run_tests
 
 `llc -march bpf -mcpu=help` 可以用来查看和设置支持的 BPF 指令集。
 
+使用 `clang` 前端编译 C 代码 `test.c` 到中间 BPF 代码 `test.o`： 
+
+```bash
+clang -target bpf -c test.c -o test.o
+```
+
+用 `readelf` 去读`test.o`：
+
+```bash
+readelf -a test.o
+```
+
 在内核中，BPF 相关的调用都是通过一个核心的系统调用 `bpf()` 来执行的，例如加载程序到内核、管理 BPF maps、管理 map entries、程序和 map 的持久化（通过 [Pinning](#Object-Pinning) 实现）等操作。
 
 在内核中的具体流程如下：
 
-![](image-20210330124500996.png)
+![](./bpf_inkernel.png)
 
-![](image-20210330124647057.png)
+![](./bpf_process.png)
 
 BPF 在内核中的执行都是事件驱动的，例如：
 
@@ -56,10 +68,10 @@ BPF 在内核中的执行都是事件驱动的，例如：
 
 示意图如下：
 
-![](image-20210330124601138.png)
+![](./ebpf_event.png)
 
 
-## 指令集
+## BPF 指令集
 
 这部分翻译自 uBPF 的文档，它是上面提到的一个 BPF JIT Complier 的实现。
 
@@ -97,7 +109,7 @@ msb      lsb
 +---+--+---+
 ```
 
-其中 `sz` 域指定了内存位置的大小，`mde` 域是内存获取模式，uBPF 只支持通用的 "MEM" 获取方式。
+其中两位的 `sz` 域指定了内存位置的大小，3 位的 `mde` 域是内存获取模式，uBPF 只支持通用的 "MEM" 获取方式。
 
 ALU/ALU64/JMP opcode 具有如下结构
 
@@ -108,7 +120,7 @@ msb      lsb
 +----+-+---+
 ```
 
-如果 `s` 位是 0，那么 source operand 就会是指令中立即数 `imm` 对应的域。如果 `s` 是 1，那么 source operand 就会是指令中 `src` 域。 `op` 域则指定了将要执行哪个 ALU 或 branch 操作。
+如果 `s` 位是 0，那么 source operand 就会是指令中立即数 `imm` 对应的域。如果 `s` 是 1，那么 source operand 就会是指令中 `src` 域。4 位的 `op` 域则指定了将要执行哪个 ALU 或 branch 操作。
 
 ### ALU 指令
 
@@ -257,8 +269,9 @@ msb      lsb
 
 与网络相关的有XDP、socket、tc等。
 
+## 组件
 
-## Helper Function
+### Helper Function
 
 Helper functions 是一些与内核交互的常用 API， 可以从内核获取或写入数据。不同的 BPF 程序类型 bpf_prog_type 可用的 helper function 不同，例如与 socket 有关的 BPF 函数就只允许使用一小部分的 helpers，而与 tc （traffic control 的缩写，更加靠近传输层，而且此时包都还没解析）相关的 BPF 函数可以调用更多的 helpers。
 
@@ -289,7 +302,7 @@ const struct bpf_func_proto bpf_map_update_elem_proto = {
 
 helper functions 数量众多，可以参考附录中的[eBPF-Helpers](https://github.com/iovisor/bpf-docs/blob/master/bpf_helpers.rst/)。
 
-## Verifier
+### Verifier
 
 上面 helper function 代码中的 `bpf_func_proto` 是用来传递 verifier 的必要数据的，用来验证 helper 提供的参数类型和当下 BPF 寄存器中的内容符合。参数类型可以是任意的值，也可以是针对一个 buffer 的 <指针，大小> 的数据对，告诉 helper 它应该从哪里读取数据或写入数据， verifier 会验证 buffer 之前是否有被初始化过。
 
@@ -299,9 +312,10 @@ In-kernel Verifier还会验证：
 - eBPF 的代码长度上限为 4096 条 BPF 指令（在内核 5.1 版本以上，这个上限提升到了 100 万）。
 - 存在可能会跳出 eBPF 代码范围的 JMP
 - 分支(branch)不允许超过 1024 个；经检测的指令数也必须在 96K 以内
-- 支持运行尾调用（tail calls），即在 eBPF 程序末尾调用另一个 eBPF 程序，但是也是有限制的，最多可以嵌套 33 次 尾调用。
+- 支持运行尾调用（tail calls），即在 eBPF 程序末尾调用另一个 eBPF 程序，但是也是有限制的，最多可以嵌套 33 次 尾调用
+- BPF helper 函数中最多允许5个函数参数
 
-## Maps
+### Maps
 
 BPF 映射是内核中的键值型数据结构，他们能够从 BPF 程序中获取，来在不同的 BPF 调用之间传递状态信息。他们也能通过用户空间的文件描述符来获取，也能在 BPF 程序或用户空间的应用之间共享。注意共享 BPF 映射的 BPF 程序不一定是相同的程序类型，例如，一个 tracing 程序也可能可以和网络程序共享映射，当下一个单独的 BPF 程序最多可以同时获取到 64 个不同的映射。
 
@@ -311,7 +325,7 @@ BPF 映射是内核中的键值型数据结构，他们能够从 BPF 程序中�
 
 现有的不通用的映射有 `BPF_MAP_TYPE_PROG_ARRAY`, `BPF_MAP_TYPE_PERF_EVENT_ARRAY`, `BPF_MAP_TYPE_CGROUP_ARRAY`, `BPF_MAP_TYPE_STACK_TRACE`, `BPF_MAP_TYPE_ARRAY_OF_MAPS`, `BPF_MAP_TYPE_HASH_OF_MAPS`。例如，`BPF_MAP_TYPE_PROG_ARRAY` 是一个包含有其他 BPF 程序的数组， `BPF_MAP_TYPE_ARRAY_OF_MAPS` 和 `BPF_MAP_TYPE_HASH_OF_MAPS` 都持有着指向其他映射的指针，为了在运行时能原子地更换 BPF 映射。通过这种实现满足了这个特殊的需求。因为状态是需要在不同的 BPF 程序调用中共享的，所以不能单独通过一个 BPF helper function实现，而是要用这种方法。
 
-## Object Pinning
+### Object Pinning
 
 BPF 映射和程序是一种内核资源，只能通过文件描述符相关的 API 来获取它们。更底层的是匿名的索引节点（内核中的 inodes）。这种做法有许多优势和劣势：
 
@@ -325,7 +339,7 @@ BPF 映射和程序是一种内核资源，只能通过文件描述符相关的 
 
 BPF 的文件系统不是单例，它支持挂载多个实例、硬或软链接。
 
-## Tail Calls
+### Tail Calls
 
 尾调用能够允许一个 BPF 程序去调用另一个，不需要返回旧的程序中。这种调用方式开销很小，和函数调用不同，它在是用 long jump 命令实现的，可以直接复用相同的栈帧（即常见的尾递归优化）。
 
@@ -337,7 +351,7 @@ BPF 的文件系统不是单例，它支持挂载多个实例、硬或软链接�
 
 内核根据提供的文件描述符查找相关的 BPF 程序，原子地替换掉给定的映射槽处的程序指针。当在映射中按照所给键值找不到指针时，内核会跳过它然后接着执行`bpf_tail_call()` 之后的函数。尾调用很有用，例如在解析网络数据包时，就可以使用尾调用逐层解析。
 
-## BPF to BPF Calls
+### BPF to BPF Calls
 
 ![](./bpf_call.png)	
 
@@ -439,10 +453,6 @@ arch/x86/Kconfig:       select HAVE_EBPF_JIT   if X86_64
 
 JIT 编译器能够显著加速 BPF 程序的执行，因为相比于解释器他们减少了单指令的开销。通常指令都能够一一映射到底层架构上的原始指令上。这也减少了最终的可执行映像大小，因而对 CPU 指令缓存来说更为友好。特别是在复杂的 CISC 指令集下，例如 `x86`，JITs 都会被优化以生成最精悍的指令，来减少程序翻译后的大小。
 
-## JIT 的具体实现
-
-Linux 内核中当然是有 BPF 的 JIT Complier 实现的，但是内核代码浩如烟海。iovisor 组织用 C 重写了一个 [ubpf](https://github.com/iovisor/ubpf/)。类似的有仿照 ubpf 写的 rust 版本 [rbpf](https://github.com/qmonnet/rbpf)。
-
 ### Hardening
 
 BPF 将整个 BPF 解释器映像（`struct bpf_prog`）和 JIT 编译出的映像（`struct bpf_binary_header`）在程序生命周期内在内核中是只读的，以防止潜在的代码损坏。例如出于内核的 bug，代码可能会损坏，进而导致内核宕机。
@@ -531,6 +541,148 @@ BPF 写的网络相关的程序，特别是 tc 和 XDP 相关程序，都有 off
 
 当下，Netronome 的驱动 `nfp` 已经支持了通过 JIT 编译器将 BPF 程序编译到网卡上特定指令集。也支持了 BPF maps，因此在网卡上 BPF 程序也能实现映射的查询、更新和删除。
 
+## BPF 虚拟机的具体实现
+
+Linux 内核中当然是有 BPF 的 虚拟机实现的，但是内核代码浩如烟海，而且是内核态的实现。
+
+用户态的虚拟机实现有：
+
+iovisor 组织用 C 重写了一个 [ubpf](https://github.com/iovisor/ubpf/)。类似的有仿照 ubpf 写的 rust 版本 [rbpf](https://github.com/qmonnet/rbpf)。
+
+但是ubpf 只支持 `x86-64`，rbpf 仿照了前者的代码，作者表示没有时间去做其他架构的支持。
+
+同时他们都是在运行期间做的地址验证，实际上没有提前做验证。如 ubpf 对 memory 相关 load/ store 指令的地址验证就是只能在运行期进行，同时它没有对栈的地址做验证 (所以 ubpf 和 rbpf 为啥要做两次循环……一次验证一次运行……)。
+
+[STM32MP157](/zh/blogs/20210223/) 开发板上，小核是 Cortex-M4，Cortex-M4 是使用的是 ARMv7-M 架构，可以参考[ARMV7-M Documentation – Arm Developer](https://developer.arm.com/documentation/ddi0403/d/Application-Level-Architecture/The-ARMv7-M-Instruction-Set/About-the-instruction-set?lang=en)。
+
+仿照 x86-64 的实现去为 ARM v7-M 实现一套。首先看字节序，x86-64 是小端的，ARM v7-M 默认也是小端，这点可以放心了。
+
+下面的章节分析一下 [x86-64](#x86-64) 和 [ARMv7-M](#ARMv7-M) 寄存器的映射，然后就可以着手看怎么改了。
+
+最后[移植](/zh/blogs/20210223/)到开发板上试一下~效果如下图。
+
+
+
+后续的工作的话：
+
+- 考虑把腾讯的那个物联网实时操作系统的移植和这里 BPF 虚拟机的移植整合一下，实现多任务处理~
+
+- 有空给ubpf 和 rbpf 都贡献一下，同时可以考虑给 RISC-V 架构也都搞一轮……（逃
+
+## 补充
+
+这部分只做了解，为了便于阅读和修改 BPF 虚拟机实现代码。关于跨平台，该[站点](https://sourceforge.net/p/predef/wiki/Home/)收录了相关的宏定义，非常实用。
+
+### Calling Convention
+
+Caller-saved register(又名易失性寄存器AKA volatile registers, or call-clobbered）用于保存不需要在各个调用之间保留的临时数量。因此，如果要在过程调用后恢复该值，则调用方有责任将这些寄存器压入堆栈或将其复制到其他位置。不过，让调用销毁这些寄存器中的临时值是正常的。从被调用方的角度来看，您的函数可以自由覆盖（也就是破坏）这些寄存器，而无需保存/恢复。
+
+Callee-saved register（又称非易失性寄存器AKA non-volatile registers, or call-preserved）用于保存应在每次调用中保留的长寿命值。当调用者进行过程调用时，可以期望这些寄存器在被调用者返回后将保持相同的值，这使被调用者有责任在返回调用者之前保存它们并恢复它们, 还是不要碰它们。
+
+更通俗的理解：
+
+“ 调用者保存”（ caller saving ）方法：如果采用调用者保存策略，那么在一个调用者调用别的过程时，必须保存调用者所要保存的寄存器，以备调用结束返回后，能够再次访问调用者。
+“ 被调用者保存”（ callee saving ）方法：如果采用被调用者保存策略，那么被调用的过程必须保存它要用的寄存器，保证不会破坏过程调用者的程序执行环境，并在过程调用结束返回时，恢复这些寄存器的内容。
+
+### GNU ASM
+
+下面 x86-64 的示例程序，采用的都是 AT&T 语法，也是 GNU 流行的语法，和之前汇编课上的语法略有区别：需要在寄存器前面添加前缀%，例如`%eax`；在AT&T语法中，第一个是源操作数，第二个是目标操作数。Intel 语法和 AT&T 语法的常见指令格式对比如下
+
+![](./asm_grammar.jpg)
+
+只需要使用 asm 就可以在 C/C++ 下写汇编程序
+
+```C
+#ifdef __x86_64__
+asm volatile (
+    "mov $0xf0, %rax;"
+);
+#elif __ARM_ARCH_7__
+asm volatile (
+    "mov r0, #0xf0;"
+);
+#endif
+```
+
+有一个很有趣的现象是，写 ARM 的汇编指令却不需要遵守类似上面 AT&Y 的语法规则，可以直接按 ARM 官方文档的写法。也有老哥在 [StackOverflow](https://stackoverflow.com/questions/43574163/why-is-gnu-as-syntax-different-between-x86-and-arm) 上问了这个问题。解答是：
+
+为啥 GNU Assembler (GAS) 在 x86 上用 AT&T 语法呢？是考虑到了 x86 上 AT&T's 汇编器的可移植性。AT&T 没有使用 Intel 官方的 x86 汇编语法，而是选择了基于他们早期的 68000 和 PDP-11 汇编器创建新的语法。当 x86 支持被添加到了 GNU compiler (GCC) 的时候，它生成的是 AT&T 语法的汇编程序，因为他们用的汇编器就是这样的。
+
+然而没有 AT&T 为 ARM CPU 写的汇编器，当 GNU 开始一直 GCC 和 GAS 到 ARM 目标机器上的时候，没理由继续创建一个新的、移植性差的语法了。于是他们就选用了 ARM 的官方语法。这就意味着你能够查询 ARM 的官方文档，在 GNU 汇编器中使用上面的标准的 ARM 指令。
+
+### x86-64
+
+Intel 最初提出的是 IA-64，但是由于不兼容 IA-32（x86-32），销量并不理想。AMD 于是推出了一款兼容 IA-32 的指令，叫 x86-64，干脆取名为 AMD64。x86-64 上不同数据类型的长度，其中 long double 多余的位是为了对齐。
+
+![这里写图片描述](./x86_type.jpg)
+
+General purpose registers (GPRs) 在 x86-32，x86-64 上分别如下
+
+![](./x86_32register.jpg)
+
+x86-32 扩展了 x86-16 的寄存器，加了字母 E 来标识，低位仍然可以视作 16 位的寄存器。同样的，x86-64 进一步扩展了 x86-32 的寄存器，用 R来标识，如下图
+
+![](./x86_64register.jpg)
+
+具体的使用方面如下图。可以看到，在名称上需要取低位的时候，旧的架构中存在的寄存器，仍然可以用旧的架构中的名字；新增的寄存器，则通过后缀 Byte （B）、Word （W）、Double Word（DW）来区分。
+
+![](./x86_64use.jpg)
+
+下面的图阐述了寄存器们具体的功能，同时除了 `rsp` 和明确标识被调用者保护的  `rbx`，`rbp`，`r12`，`r13`，`r14`，`r15`，其余都是调用者需要保护的寄存器。
+
+![](./x86_64bank.jpg)
+
+下面是一个表达式运算的例子，先进行类型转换，与运算中更长的类型统一位数后再进行计算
+
+![](x86_cal.jpg)
+
+函数调用的例子，在 x86-32 中需要用到栈，但是在 x86-64 中可以更简单地直接调用寄存器
+
+![](./x86_call.jpg)
+
+更加详细的过程调用参数传递规范，有下表
+
+![](./x86_specification.jpg)
+
+根据上表，一个较为复杂的例子如下
+
+![](./x86_example.jpg)
+
+### ARMv7-M
+
+如之前[笔记](/zh/blogs/20210311/)所述，ARMv7-M 适用于嵌入式系统等功耗低的场景，只支持Thumb指令集，用于微处理器领域。它的寄存器为 32 位。以 Cortex-M4 为例，它包含了 32 个寄存器，其中 13 个是通用寄存器（GPR），还有一些是具有特殊意义的寄存器。具体而言，GPR 为 R0-R12，R13 是 Stack Pointer（SP），R14 是 Link Register （LR），R15 是 Program Counter（PC），其余都是 Special-purpose Program Status Registers, (xPSR)。
+
+![](./arm_register.png)
+
+从上图中可以看出通用寄存器分为 
+
+- low registers 是 R0 到 R7，所有指令都能使用他们 
+- high registers 是 R8 到 R12，32 位指令可以使用，都是16位指令不能使用
+
+特殊的寄存器：
+
+- SP：R13 会忽略掉位 [1:0] 的写操作，因此它自动是按 word 对齐的（4个Byte）。处理异常的 Handler 模式下总是使用 SP_main，但是也可以配置 Thread 模式使用 SP_main 或 SP_process。"Thumb" 模式下的 Push/Pop 指令用这个寄存器。
+- LR：R14 是链接子程序的寄存器。当执行 Branch and Link (BL) 或 Branch and Link with Exchange (BLX)  指令的时候，LR 接收从 PC 返回的地址。LR 也用来处理异常的返回。在其他时候，也可以把它当做通用寄存器。
+- PC：R15 的第 0 位总是0，指令地址都是按 word 或 half-word 为界对齐的。
+
+至于其他 16 个寄存器，一般都是用于系统控制，见[Cortex-M4 Manual](https://developer.arm.com/documentation/100166/0001/System-Control?search=5eec6e71e24a5e02d07b259a)第四章：System Control。
+
+在处理函数调用时，参考 [维基百科](https://en.wikipedia.org/wiki/Calling_convention) 和 [StackOverflow](https://stackoverflow.com/questions/261419/what-registers-to-save-in-the-arm-c-calling-convention)，32 位 ARM 的 Calling Convention （即 caller-saved 还是 callee-saved）是遵从 [AAPCS](https://developer.arm.com/documentation/ihi0042/f/) 第5.1.1 寄存器相关章节。从功能上来讲
+
+- R12：Intra-Procedure-call scratch register，调用者保存
+- R4 ~ R11：局部变量，除了 R9 都是被调用者存储的寄存器，R9在某些情况下是特殊寄存器
+- R0 ~ R3：传递给子程序的参数和子程序返回的结果，调用者保存
+
+用一张表描述
+
+![](arm_calling.png)
+
+例子：
+
+![](./arm_convention1.png)
+
+![](./arm_convention2.png)
+
 # Reference 
 
 [BPF](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_devel_QA.rst) 开发QA：解释了两条bpf相关的内核分支的作用，规定了汇报bug、提交补丁的方法。
@@ -544,4 +696,18 @@ Facebook 的 BPF 相关团队成员[博客](https://nakryiko.com/)，大部分�
 [iovisor eBPF spec](https://github.com/iovisor/bpf-docs/blob/master/eBPF.md) 列出了 eBPF opcode，项目是 iovisor 总结的系列文档、pre。
 
 [内核 bpf 相关文档](https://www.kernel.org/doc/Documentation/networking/filter.txt)
+
+架构、指令集相关：
+
+[Caller-saved register and Callee-saved register](https://blog.csdn.net/l919898756/article/details/103142439)
+
+[X86-64指令系统_yongchaocsdn的博客-CSDN博客](https://blog.csdn.net/yongchaocsdn/article/details/78336233)
+
+[ARMv7-M Documentation – Arm Developer](https://developer.arm.com/documentation/ddi0403/d/Application-Level-Architecture/The-ARMv7-M-Instruction-Set/About-the-instruction-set?lang=en)
+
+[ARM Cortex-M4 Processor Technical Reference Manual](https://developer.arm.com/documentation/100166/0001/System-Control?search=5eec6e71e24a5e02d07b259a)
+
+[GNU ARM Quick Reference](https://www.ic.unicamp.br/~celio/mc404-2014/docs/gnu-arm-directives.pdf)
+
+[C/C++跨平台宏定义](https://sourceforge.net/p/predef/wiki/Home/)
 

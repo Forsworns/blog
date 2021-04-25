@@ -208,7 +208,7 @@ let s;
 println!("{}", s)
 ```
 
-这段代码会报错，因为在括号外，`numbers`  被 drop 掉了，所以 `s`也就无法引用函数返回值了。
+也就是说，这段代码会报错，因为在括号外，`numbers`  被 drop 掉了，所以 `s`也就无法引用函数返回值了。
 
 ### 结构体
 
@@ -254,13 +254,18 @@ fn main() {
 
 在第一种定义下，编译器会自动选择更短的生命周期，即成员`x` 和 `y` 都会被当做 `y` 的生命周期。
 
+## Trait
+
+- Trait 比较烦的一点是在使用相关的类的时候，记得把它实现的 trait 也要 use 到。
+- 递归相关的 trait、复制相关的 trait 遇到问题可以回顾过往的笔记。
+
 ## 与 C++ 结合
 
 标准库中几个常用的
 - std::os::raw
 - std::ffi
 
-cratio 上的库
+http://crates.io/ 上的库
 
 - clib
 - inx
@@ -273,15 +278,15 @@ cratio 上的库
 
 ## 杂项
 
-关键字 `ref`，`deref` 等价于 `&` 和 `*`，即
+- 关键字 `ref`，`deref` 等价于 `&` 和 `*`，即
 
-```rust
-let a = &3u8 ;
-let ref b = 3u8;
-assert_eq!(*a,*b);
-```
+    ```rust
+    let a = &3u8 ;
+    let ref b = 3u8;
+    assert_eq!(*a,*b);
+    ```
 
-2018 版里，不用 `extern crate` 了，可以直接 `use`
+- 2018 版里，不用 `extern crate` 了，可以直接 `use`
 
 ## 安全性
 

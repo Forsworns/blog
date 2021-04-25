@@ -21,6 +21,47 @@ ARM Cortex芯片系列：
 - ARM Cortex-R：支持 ARM和Thumb指令集，只支持物理地址，支持内存管理，用于实时性领域。
 - ARM Cortex-M：只支持Thumb指令集，用于微处理器领域。
 
+## 开发板、STM32CubeIDE 注意点备忘
+
+- 换了机器后，在 STM32CubeIDE 里直接打开原来是 working space 是不行的，它记录的是绝对路径，记得把 working space 下的工程都删掉，重新导入工程；同时记得在 project 选项栏下选 make clean 把原先的记录都清掉。
+
+- build 项目的时候注意选好是哪个项目，注意是用的 JTAG 还是 A7 上的 Linux （根据板子启动模式的不同来选择），如果是 linux 的话对每个项目可以单独选择它在远端的路径、名称（Remote Settings），也是在项目的 property 里设置。
+
+- 记得在项目的 property 属性（可以通过邮件点击项目找到）里的 C/C++ General 下的 Path and Symbols 看有没有添加上头文件路径等。
+
+- 开发板上烧写 Ubuntu18.04，参考华清远见提供的手册，往 flash 上烧写要用 emmc 对应的配置，但是实测失败了，往 sd 卡上烧写ubuntu 的 raw 镜像倒是成功了（注意 sd 卡启动是 101，emmc 启动是010）。
+
+- 官方提供的 Ubuntu 18.04 镜像上没有支持 usb otg，所以用 Ubuntu 做多核通信部分不能按手册里的方式配置，可以给板子接个网线，因为 STM32CubeIDE 是用 ssh 连接的，用 scp 复制的文件，这个镜像默认是没有 netplan 工具的，所以要按之前版本的 Ubuntu 改静态 IP 的方法，在 `/etc/network/interfaces` 中修改成静态 IP，在 `/etc/resolv.conf` 里修改 DNS（注意两边网卡名匹配）。然后`ip addr flush dev ${your-net-device}` 刷新设置、`ifdown ${your-net-device`} 、 `ifup ${your-net-device}` 重启网卡。也可以把这些设置提前写到别的文件里，在 `~/.bashrc` 里用这些文件通过 `cp` 等方式默认配置文件，这样每次开机都可以自己覆盖掉（当然下面记录的部分是用的默认的 st open linux，所以是用 usb otg 搞得 RNDIS，从而连接的）
+
+- 这个镜像也没有 `modprobe` 工具，如果用到需要自己安 `kmod` 包
+
+- STM32CubeIDE 选 Linux 调试是用 ssh 和板子上的 Linux 建立的连接，默认是用的 root 用户，我没有找到在哪里改用别的用户连接开发板，所以只能在板上的系统里开启允许 root 用户建立 ssh 的选项。需要修改 `/etc/ssh/sshd_config` 文件，把 `PermitRootLogin prohibit-password` 改成 `PermitRootLogin yes`，然后重启相关服务 `sudo service ssh restart`
+
+- STM32CubeIDE 会把编译出的 elf 文件发送给板子，存在上面提到的 Remote Settings 中默认的 `/usr/local/project/${project-name}` 下面，可以去板子上的 Linux 这个目录下找，可以看到下面这样的自动生成的脚本。
+
+  ```bash
+  #!/bin/sh
+  rproc_class_dir="/sys/class/remoteproc/remoteproc0"
+  fmw_dir="/lib/firmware"
+  fmw_name="xxxxx.elf"
+  
+  if [ $1 == "start" ]
+  then
+  	# Start the firmware
+  	cp lib/firmware/$fmw_name $fmw_dir
+  	echo -n "$fmw_name" > $rproc_class_dir/firmware
+  	echo -n start > $rproc_class_dir/state
+  fi
+  
+  if [ $1 == "stop" ]
+  then
+  	# Stop the firmware
+  	echo -n stop > $rproc_class_dir/state
+  fi
+  ```
+  
+  然后是用的 remoteproc 的方式在 Cortex-M4 上加载的 elf 文件，所以理论上，我们在 Cortex-A7 上可以通过这种方式，向 Cortex-M4 提供准备好的 elf 文件。当然，这里 remoteproc 只是在做开关机等操作，在启动后，Cortex-A7 和 Cortex-M4 日常的通信可以用 `/dev/RPMsg0` 和 `/dev/RPMsg1`
+
 ## 硬件
 
 搭载的 SOC 是 STM32MP157AAA3，在 STM32Cube 里面记住选这个。
@@ -40,7 +81,7 @@ ARM Cortex芯片系列：
 在 Wi-Fi 蓝牙天线接口的旁边有一个拨片开关是用来设置启动配置的，实测和下图中定义的不符？
 
 - **001**是工程模式（写字母的一端上方，代表1；写数字的一端下方，代表0）。可以进行 Cortex M4 的开发和调试。
-- **010**是让 Cortex A7 加载 TF 卡内镜像启动， **000** 是烧录镜像给板载 Flash，**101**是加载板载 Flash 内镜像启动。
+- **101**是让 Cortex A7 加载 TF 卡内镜像启动， **000** 是烧录镜像给板载 Flash，**010**是加载板载 Flash 内镜像启动。
 - 注意 0 和 1 可能搞反，启动 / 调试不了拨过来重新试一下。
 
 ![boot_mode](./boot_mode.png)
@@ -94,7 +135,7 @@ STM32CubeMX 可提供以下服务（在使用前一般要对 MPU 内部的 perip
 
 #### GPIO 
 
-华清远见教程 P247 左右。
+华清远见教程 P247 左右。在创建工程后注意 IDE 会先调用 STM32CubeMX 让你初始化板子，不然很多相关头文件都要自己手动 include，初始化等工作也要自己做，配置后会自动为我们生成工程文件。同时因为有两个核，还要设置 Pin Reservation 给 Cortex M4。在Project Manager 的 Code Generator 处选择为每个外设生成单独的 `.c/.h` 文件以便阅读。在 STM32CubeMX 里左键点击引脚可以进行类型选择，选择后右键再点击可以选择分配给的是哪个核，下方还有搜索框可以搜索引脚，被搜索到的引脚在 Pinout View 中会闪烁。这里因为我们买的是华清远见做好的板子，所以哪个引脚对应什么功能，是华清远见已经连接好的，比如这里 LED 它给连接的就是 PZ5，PZ6，PZ7 这三个引脚。
 
 IO 口可以由软件配置成4种模式，其实操作的是GPIO 的端口模式寄存器
 
@@ -113,7 +154,7 @@ IO 操作重要结构体：`GPIO_InitTypeDef`中定义了Pin、Mode、Pull、Spe
 
 #### 按键扫描
 
-华清远见教程 P247 左右。
+华清远见教程 P256 左右。
 
 `void HAL_GPIO_WritePin(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin, GPIO_PinState PinState)`可以读引脚输入值，默认是 pullup，所以按下后是 0 。
 
@@ -354,6 +395,10 @@ IPCC相关设置不能直接单独在某个 context 下开启，一定是两个�
 
 ### 利用 OpenAMP 的多核协同工作（A7 和 M4 通信）
 
+需要在 CubeMX 里同时选择 OpenAMP 和 IPCC 下的 Cortex M4 选项，注意还需要勾选 activated
+
+STM32MP157 默认设置的共享内存是 32K
+
 第 56 章， P613 附近
 
 源码在 `\Cortex-M4\STM32Cube_FW_MP1_V1.2.0\Projects\STM32MP157A-FSMP1\Applications\OpenAMP\OpenAMP_TTY_echo` 目录下
@@ -416,7 +461,7 @@ Slave （图中是 PRU0，不用管它是啥）的步骤：
 - 下面的命令需要在 Cortex-A7 的 Linux 控制台中运行，在执行完这个命令后，在 Linux 控制台中我们会得到 `"Hello Virtual UART0"` 和 `"Hello Virtual UART1"`。也就是说，在 CA7 中 Linux 是把消息通道识别成了一个文件描述符 （事实上，所有的文件、外设都是这样的，直接在文件系统中，当做一个普通的文件来处理，应该也是使用 socket 在通信）。
 
     ```shell
-    stty -onlcr -echo -F /dev/ttyRPMSG0
+    stty -onlcr -echo -F /dev/ttyRPMSG0 # 设置终端取消该设备的echo，回车换行符转换换行符
     cat /dev/ttyRPMSG0 &
     stty -onlcr -echo -F /dev/ttyRPMSG1
     cat /dev/ttyRPMSG1 &
@@ -704,7 +749,11 @@ struct rpmsg_endpoint {
 
 首先在 STM32CubeIDE中用 STM32CubeMX仿照 LED 和外部中断那两个示例，设置好引脚和中断。
 
-接下来移植 Tiny OS。
+接下来移植 Tiny OS。STM32CubeIDE 是基于 Eclipse 和 arm-gcc 的，添加PATH 和修改配置文件可以凭借类似的经验或文档来。
+
+事实上可以让 STM32CubeMX 自动生成带 FreeRTOS 的代码，然后参考 `RT_CM4/Core/Inc` 目录下的 FreeRTOSConfig.h 来设置。
+
+如果是用 STM32CubeMX 配置 RTOS，会提示使用 HAL timebase source 而不是用 Systick。可以通过前面的 Pinout 部分的 SYS 选项设置，需要启用 TIMx，这个在下小节记录。
 
 在 `board` 目录下找到最接近的一个。STM32F103 是 Cortex-M3，STM32F401 是 84 MHZ Cortex-M4，STM32F407 是 168 MHZ Cortex-M4，STM32F745 是 Cortex-M7。所以我们使用 STM32F401 或 STM32F407 下面的 `board/xxx/tos_config.h`，把  `#include "stm32f4xx.h"` 修改为 `#include "stm32mp1xx.h"`（因为板子是 mp157）。
 
@@ -720,7 +769,7 @@ struct rpmsg_endpoint {
 
 示例中使用的 cmsis_os 是旧版的接口（新版中没有），所以要用的是 `cmsis_os.h`。或者在 `platform/vendor_bsp/st/CMSIS/RTOS2/Template` 下的 `cmsis_os.h` 中则根据预处理宏选择了头文件的版本，如果是要求用 2.0 往上的接口，会用宏做替换。
 
-此时可以尝试编译了，成功编译后，接下来用一小段程序验证一下是否成功跑起来了os，创建一个应用入口程序：
+此时可以尝试编译了，成功编译后，接下来用一小段程序验证一下是否成功跑起来了os，创建一个应用入口程序（这里用的是 cmsis_os2格式的接口，也可以用 TencentOS-tiny 创建 task 的风格，腾讯官方都做了支持）：
 
 ```c
 __weak void application_entry(void *arg)
@@ -743,9 +792,11 @@ __weak void application_entry(void *arg)
 
 应该还有一些常量和宏的定义可能需要修改但是目前还没有用到。
 
+在 `/components/`目录下选择我们需要的文件系统部分 `fs` 和 elf 文件读取功能支持 `elfloader`，添加到 STM32CubeIDE 中 
 
+#### HAL timebase source / Systick
 
-
+如果是用 STM32CubeIDE 自动生成带 RTOS 的代码，会有相关提示，应该还是说程序的中断和时钟中断优先级的问题
 
 
 
