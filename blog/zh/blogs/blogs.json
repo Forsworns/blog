@@ -143,5 +143,10 @@
         "date": "2021/04/12",
         "title": "文件系统学习笔记",
         "content": "FAT, HPFS, NTFS, FatFs, VFS"
+    },
+    {
+        "date": "2021/05/06",
+        "title": "SJTU HPC平台使用",
+        "content": "使用心得、常用指令"
     }
 ]

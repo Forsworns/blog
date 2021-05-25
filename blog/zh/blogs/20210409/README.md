@@ -246,7 +246,19 @@ make DEBUG='-D A_MACRO'
 
 使用 cmake 读取 CMakeList.txt 可以自动生成需要的 Makefile。CMakeList 的语法：
 
+### 指定安装目录
 
+通过定义 `CMAKE_INSTALL_PREFIX:PATH` 更改安装路径，在无法获取 sudo 权限时候可以使用这种方式安到当前用户目录下？
+
+```bash
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX:PATH=$(realpath ../install) ..
+make -j N install
+```
+
+
+例如这个例子中，通过 `realpath` 获取相对路径的绝对路径名，从而安装在上级的 install 目录下
 
 # Reference 
 

@@ -35,6 +35,8 @@ ARM Cortex芯片系列：
 
 - 这个镜像也没有 `modprobe` 工具，如果用到需要自己安 `kmod` 包
 
+- 因为板子是 Cortex-A7 的，在这个板子上的 apt 需要换用 arm 源，华为有提供而且可以 wget 直接下……如果配的是 x86 源的会报找不到源还以为是网不好；同时记得注意版本，18.04 名字是 Bionic Beaver，链接都要换成 Bionic，可以用 `sed -i 's/xxxx/Bionic/g' /etc/apt/source.list` 做快速替换
+
 - STM32CubeIDE 选 Linux 调试是用 ssh 和板子上的 Linux 建立的连接，默认是用的 root 用户，我没有找到在哪里改用别的用户连接开发板，所以只能在板上的系统里开启允许 root 用户建立 ssh 的选项。需要修改 `/etc/ssh/sshd_config` 文件，把 `PermitRootLogin prohibit-password` 改成 `PermitRootLogin yes`，然后重启相关服务 `sudo service ssh restart`
 
 - STM32CubeIDE 会把编译出的 elf 文件发送给板子，存在上面提到的 Remote Settings 中默认的 `/usr/local/project/${project-name}` 下面，可以去板子上的 Linux 这个目录下找，可以看到下面这样的自动生成的脚本。
@@ -799,39 +801,3 @@ __weak void application_entry(void *arg)
 如果是用 STM32CubeIDE 自动生成带 RTOS 的代码，会有相关提示，应该还是说程序的中断和时钟中断优先级的问题
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- <Comment lang="zh-CN"/> 
