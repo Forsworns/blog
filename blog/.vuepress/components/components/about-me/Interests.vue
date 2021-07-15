@@ -2,7 +2,7 @@
   <div id="interests">
     <div v-for="(item, idx) in labels" :key="item">
       <i class="icon" :class="icons[idx]"></i>
-      {{item}}
+      {{ item }}
     </div>
   </div>
 </template>

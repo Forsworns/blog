@@ -21,11 +21,13 @@ ARM Cortex芯片系列：
 - ARM Cortex-R：支持 ARM和Thumb指令集，只支持物理地址，支持内存管理，用于实时性领域。
 - ARM Cortex-M：只支持Thumb指令集，用于微处理器领域。
 
-## 开发板、STM32CubeIDE 注意点备忘
+## 开发板、STM32CubeIDE 注意点备忘（实践相关，很乱，放前面是为了自己快点看到，读者可以先跳过）
 
 - 换了机器后，在 STM32CubeIDE 里直接打开原来是 working space 是不行的，它记录的是绝对路径，记得把 working space 下的工程都删掉，重新导入工程；同时记得在 project 选项栏下选 make clean 把原先的记录都清掉。
 
 - build 项目的时候注意选好是哪个项目，注意是用的 JTAG 还是 A7 上的 Linux （根据板子启动模式的不同来选择），如果是 linux 的话对每个项目可以单独选择它在远端的路径、名称（Remote Settings），也是在项目的 property 里设置。
+
+- 用  A7 上的 Linux 调试的时候（STM32CubeIDE 里调试选项的生产模式），可以用串口连接它，开一个终端；也可以给板子连上网线，自己另开一个控制台用 ssh 来连接。后者要方便一些，因为我们的程序中可以要输出一些调试值到串口，影响 A7 的使用。但是还是需要用 USB 线去连开发机，加载出来 Remote NDIS 网卡，在 CubeIDE 里 Debug Configuration 里设置调试器 IP 为 Remote NDIS 网卡的地址，否则调试可能会出问题：我试了一下给板子接上网线，在 CubeIDE 里用局域网内的地址，虽然可以把编译出的项目文件拷贝到 A7 上的 `/usr/local/project` （这里后面有一条详细写了），但是没法用 OpenOCD 下断点调试。
 
 - 记得在项目的 property 属性（可以通过邮件点击项目找到）里的 C/C++ General 下的 Path and Symbols 看有没有添加上头文件路径等。
 
@@ -301,6 +303,31 @@ RPMsg是基于 **virtio** 的 messaging bus，允许本地处理器和远程处�
 
 基于这些框架， RPMsg框架实现了一个基于信道的通讯方式，信道使用文本信息进行区分，同时有本地地址和远端地址，类似 socket 通信？需要注意的是在远端也需要实现 RPMsg框架，具体的实现有很多种，比较出名的是 [**OpenAMP**](https://www.openampproject.org/)。
 
+> 实践相关：在 STM32CubeIDE 里添加 OpenAMP 支持后，会自动添加 OpenAMP 到 `Middleware` 目录下，在 `M4` 目录下的是 ST 在它之上做的一层包裹。包裹后视作 virtual uart 结构，可以支持双向通信。
+>
+> 底层的IPCC，是创建了两个 vring，分别分配给 channel1 和 channel2，而在`mbox_ipcc.c` 的注释里直接画出来了通信的方向：
+>
+> ```c
+> /*
+> * Channel direction and usage:
+> *
+> *  ========   <-- new msg ---=============--------<------   =======
+> * ||      ||                || CHANNEL 1 ||                ||     ||
+> * ||  A7  ||  ------->-------=============--- buf free-->  || M4  ||
+> * ||      ||                                               ||     ||
+> * ||master||  <-- buf free---=============--------<------  ||slave||
+> * ||      ||                || CHANNEL 2 ||                ||     ||
+> *  ========   ------->-------=============----new msg -->   =======
+> */
+> ```
+> A7是被当做 master（`RPMSG_MASTER` / `VIRTIO_DEV_SLAVE`），rpmsg 的 endpoint 存储在 `VIRT_UART_HandleTypeDef huart0` 中；M4 是 slave（`RPMSG_REMOTE` / `VIRTIO_DEV_SLAVE`），rpmsg 的 endpoint 存储在 `VIRT_UART_HandleTypeDef huart1` 中。vring 的具体定义在 rsc_table.c 中，每个 vring 上有 16 个 buffer。共享内存的总大小是 32KB，是定义在链接文件 `STM32MP157AAAX_RAM.ld` 中的，定义成了 
+>
+> ```assembly
+> RAM2_ipc_shm		(xrw)	: ORIGIN = 0x10040000,	LENGTH = 0x00008000
+> ```
+>
+> 在 OpenAMP 的 `rpmsg_virtio.h` 中定义的 `RPMSG_BUFFER_SIZE` 则是 512。
+
 在 RPMsg client 的实现中，需要关注两个概念：
 
 - RPMsg channel：
@@ -469,8 +496,7 @@ Slave （图中是 PRU0，不用管它是啥）的步骤：
     cat /dev/ttyRPMSG1 &
     echo "Hello Virtual UART0" >/dev/ttyRPMSG0
     echo "Hello Virtual UART1" >/dev/ttyRPMSG1
-    ```
-	
+```
 
 **注意**：
 
@@ -478,7 +504,7 @@ Slave （图中是 PRU0，不用管它是啥）的步骤：
 
 该示例中的传输，Channel 1 和 Channel 2 分别承担一个方向的传输。
 
-```C
+​```C
 /*
  * Channel direction and usage:
  *
@@ -771,7 +797,7 @@ struct rpmsg_endpoint {
 
 示例中使用的 cmsis_os 是旧版的接口（新版中没有），所以要用的是 `cmsis_os.h`。或者在 `platform/vendor_bsp/st/CMSIS/RTOS2/Template` 下的 `cmsis_os.h` 中则根据预处理宏选择了头文件的版本，如果是要求用 2.0 往上的接口，会用宏做替换。
 
-此时可以尝试编译了，成功编译后，接下来用一小段程序验证一下是否成功跑起来了os，创建一个应用入口程序（这里用的是 cmsis_os2格式的接口，也可以用 TencentOS-tiny 创建 task 的风格，腾讯官方都做了支持）：
+此时可以尝试编译了，成功编译后，接下来用一小段程序验证一下是否成功跑起来了os，创建一个应用入口程序（这里用的是 cmsis_os2格式的接口，也可以用 TencentOS-tiny 创建 task 的风格，腾讯官方都做了支持；分配给每个各个任务的栈大小需要提前考虑好，不然各种奇葩的错误……）：
 
 ```c
 __weak void application_entry(void *arg)
@@ -784,7 +810,7 @@ __weak void application_entry(void *arg)
 }
 ```
 
-正常情况应该看到 LED 闪烁。
+上面这段写入板子后，正常情况应该看到 LED 闪烁。
 
 本来还想测试按键中断，但是暂时不知道为什么启动 os 后按键中断无法触发。
 
@@ -799,5 +825,4 @@ __weak void application_entry(void *arg)
 #### HAL timebase source / Systick
 
 如果是用 STM32CubeIDE 自动生成带 RTOS 的代码，会有相关提示，应该还是说程序的中断和时钟中断优先级的问题
-
 

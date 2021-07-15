@@ -1,14 +1,16 @@
 ---
 layout: ContentLayout.vue
-title: BPF和eBPF （续：实现相关）
+title: eBPF 用户空间虚拟机实现相关
 tag: 笔记
 ---
 
 [[toc]]
 
-# BPF 和 eBPF （续：实现相关）
+# eBPF 用户空间虚拟机实现相关
 
-续上一篇[笔记](/zh/blogs/20210311/)，这次记录一些实践相关的内容。不再区分classical BPF和eBPF，统称BPF。
+续上一篇[BPF笔记](/zh/blogs/20210311/)，这次记录一些实践相关的内容。不再区分classical BPF和eBPF，统称BPF。
+
+开发板相关的内容在[另一篇笔记](/zh/blogs/20210223/)。
 
 ## Linux 内核相关
 

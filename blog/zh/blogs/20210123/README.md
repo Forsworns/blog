@@ -23,7 +23,7 @@ impl LinkNode{
     fn get_next(&self) -> Option<Box<LinkNode>>{
         None
     }
-    fn append_next(&mut self, next: LinkNode) -> Self{
+    fn append_next(mut self, next: LinkNode) -> Self{
         self
     }
 }

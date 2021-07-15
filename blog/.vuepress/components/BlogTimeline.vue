@@ -1,36 +1,24 @@
 <template>
-  <div id="BlogTimeline">
-    <el-timeline v-for="blog in blogs">
-      <el-timeline-item :timestamp="blog.date" placement="top">
-        <el-card>
-          <router-link :to="computeLink(blog.date)">
-            <h4>{{ blog.title }}</h4>
-          </router-link>
-          <p>{{ blog.content }}</p>
-        </el-card>
-      </el-timeline-item>
-    </el-timeline>
-  </div>
+  <Timeline :blogs="blogs"></Timeline>
 </template>
 
 <script>
+import Timeline from "./components/blogs/Timeline.vue";
 import blogs from "../../zh/blogs/blogs.json";
 blogs.reverse();
 
 export default {
   name: "BlogTimeline",
+  created() {
+    this.blogs = blogs;
+  },
   data() {
     return {
       blogs,
     };
   },
-  methods: {
-    computeLink(date) {
-      return `${date.split("/").join("")}/`;
-    },
-  },
+  components: { Timeline },
 };
 </script>
 
-<style lang="scss" scoped>
-</style>
+<style lang="scss" scoped></style>

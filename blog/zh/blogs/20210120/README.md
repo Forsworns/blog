@@ -76,6 +76,9 @@ fn main() {
     house.animal.speak();
 }
 ```
+首先，克隆一个 `Box` 其实不具有好的语义，因为它和 C++ 中的 `unique_ptr` 一般，具有独占的语义。
+如果想要多个指针指向同一个对象，该使用 `Rc`，具有 `shared_ptr` 的语义。
+那么这里的克隆显然是想要深拷贝一份。那直接 `(*box).clone()` 好不好呢？也不好，如下。
 
 这个时候，如果我们想要复制`house`变量，如`house.clone()`就会报错，提示我们没有实现`Clone`Trait，但是当你给`AnimalHouse`和`Animal`都derive了一个，又会导致`Animal`类型`not object-safe [E0038]`，这是什么原因呢？事实上这个问题是`Clone` Trait导致的，我们直接做`&house as &Clone`也是无法进行类型转换的。 
 

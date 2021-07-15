@@ -2,12 +2,14 @@
     {
         "date": "2019/07/21",
         "title": "第一篇博客",
-        "content": "这是一篇平平无奇的初始博客。"
+        "content": "这是一篇平平无奇的初始博客。",
+        "attrs": ["博客搭建"]
     },
     {
         "date": "2019/08/24",
         "title": "Anaconda中的cudnn版本问题",
-        "content": "Loaded runtime CuDNN library: 7.1.4 but source was compiled with: 7.4.1"
+        "content": "Loaded runtime CuDNN library: 7.1.4 but source was compiled with: 7.4.1",
+        "attrs": ["配环境"]
     },
     {
         "date": "2019/09/08",
@@ -17,17 +19,20 @@
     {
         "date": "2019/09/19",
         "title": "使用Alias命令接收参数",
-        "content": "通过在定义函数使得alias命令接收参数"
+        "content": "通过在定义函数使得alias命令接收参数",
+        "attrs": ["常用命令"]
     },
     {
         "date": "2019/11/02",
         "title": "Lyapunov函数在探讨队列稳定性时的应用",
-        "content": "虚拟队列方法及利用Lyapunov函数证明队列稳定性"
+        "content": "虚拟队列方法及利用Lyapunov函数证明队列稳定性",
+        "attrs": ["算法"]
     },
     {
         "date": "2019/11/03",
         "title": "拟阵与贪心算法",
-        "content": "何为拟阵及其与贪心算法的关系"
+        "content": "何为拟阵及其与贪心算法的关系",
+        "attrs": ["算法"]
     },
     {
         "date": "2019/11/04",
@@ -37,17 +42,20 @@
     {
         "date": "2019/11/09",
         "title": "移动通信和SIM卡",
-        "content": "移动通信和SIM相关内容简记"
+        "content": "移动通信和SIM相关内容简记",
+        "attrs": ["通信"]
     },
     {
         "date": "2019/11/12",
         "title": "Ubuntu启动Grub引导错误",
-        "content": "重装双系统碰到的Grub引导错误"
+        "content": "重装双系统碰到的Grub引导错误",
+        "attrs": ["配环境"]
     },
     {
         "date": "2020/06/16",
         "title": "NS3 简记",
-        "content": "NS3中混编C++/python代码"
+        "content": "NS3中混编C++/python代码",
+        "attrs": ["配环境"]
     },
     {
         "date": "2020/08/16",
@@ -62,62 +70,74 @@
     {
         "date": "2020/08/18",
         "title": "想要一只看板娘",
-        "content": "基于Vuepress搭建的博客的美化"
+        "content": "基于Vuepress搭建的博客的美化",
+        "attrs": ["博客搭建"]
     },
     {
         "date": "2020/10/23",
         "title": "WebRTC折腾笔记",
-        "content": "WebRTC on WSL2 Ubuntu2 折腾笔记"
+        "content": "WebRTC on WSL2 Ubuntu2 折腾笔记",
+        "attrs": ["配环境"]
     },
     {
         "date": "2021/01/20",
         "title": "Rust：克隆trait object？",
-        "content": "Rust中克隆Trait Object遇到的坑"
+        "content": "Rust中克隆Trait Object遇到的坑",
+        "attrs": ["rust"]
     },
     {
         "date": "2021/01/23",
         "title": "Rust：如何创建一个的递归的trait？",
-        "content": "Rust中创建一个递归的Trait的“一百种”实现方式"
+        "content": "Rust中创建一个递归的Trait的“一百种”实现方式",
+        "attrs": ["rust"]
     },
     {
         "date": "2021/02/03",
         "title": "傻瓜笔记：重要文档下载方式（3GPP标准、RFC）",
-        "content": "前两天查阅3GPP标准太痛苦了遂记录之"
+        "content": "前两天查阅3GPP标准太痛苦了遂记录之",
+        "attrs": ["通信"]
     },
     {
         "date": "2021/02/04",
         "title": "为什么同一个文件在不同电脑上大小不一样",
-        "content": "每天一个没用的知识（×）"
+        "content": "每天一个没用的知识（×）",
+        "attrs": ["一点趣事"]
     },
     {
         "date": "2021/02/23",
         "title": "STM32MP157A和IPCC",
-        "content": "开发板学习"
+        "content": "开发板学习",
+        "attrs": ["嵌入式"]
     },
     {
         "date": "2021/02/24",
         "title": "Rust宏学习笔记",
-        "content": "Keep Learning！"
+        "content": "Keep Learning！",
+        "attrs": ["rust"]
     },
     {
         "date": "2021/02/24",
         "title": "虚拟化基础学习笔记",
-        "content": "基础知识"
+        "content": "基础知识",
+        "attrs": ["虚拟化"]
     },
     {
         "date": "2021/03/10",
         "title": "USART, UART, RS232, USB, SPI, I2C, TTL都是啥",
-        "content": "串行通信协议总结"
+        "content": "串行通信协议总结",
+        "attrs": ["嵌入式"]
     },
     {
         "date": "2021/03/11",
-        "title": "BPF和eBPF",
-        "content": "相关材料整理"
+        "title": "BPF和eBPF初探",
+        "content": "相关材料整理",
+        "attrs": ["bpf"]
     },
     {
         "date": "2021/03/12",
         "title": "Rust 基础备忘",
-        "content": "大基本功"
+        "content": "大基本功",
+        "attrs": ["rust"]
     },
     {
         "date": "2021/03/14",
@@ -127,26 +147,49 @@
     {
         "date": "2021/03/15",
         "title": "Wifi连接受到的电磁干扰",
-        "content": "奇怪的知识增加了"
+        "content": "奇怪的知识增加了",
+        "attrs": ["一点趣事"]
     },
     {
         "date": "2021/03/29",
-        "title": "BPF和eBPF",
-        "content": "续：实现相关"
+        "title": "eBPF 用户空间虚拟机实现相关",
+        "content": "用户态虚拟机实现",
+        "attrs": ["bpf","虚拟化"]
     },
     {
         "date": "2021/04/09",
         "title": "Makefile 笔记",
-        "content": "人傻就要多记笔记"
+        "content": "人傻就要多记笔记",
+        "attrs": ["常用命令"]
     },
     {
         "date": "2021/04/12",
         "title": "文件系统学习笔记",
-        "content": "FAT, HPFS, NTFS, FatFs, VFS"
+        "content": "FAT, HPFS, NTFS, FatFs, VFS",
+        "attrs": ["翻译"]
     },
     {
         "date": "2021/05/06",
         "title": "SJTU HPC平台使用",
-        "content": "使用心得、常用指令"
+        "content": "使用心得、常用命令",
+        "attrs": ["常用命令"]
+    },
+    {
+        "date": "2021/06/27",
+        "title": "使用 libbpf-bootstrap 构建 BPF 程序",
+        "content": "libbpf介绍，相关博客翻译笔记",
+        "attrs": ["bpf", "翻译"]
+    },
+    {
+        "date": "2021/07/06",
+        "title": "BPF Type Format (BTF)",
+        "content": "BPF Type Format (BTF) 文章翻译笔记",
+        "attrs": ["bpf", "翻译"]
+    },
+    {
+        "date": "2021/07/15",
+        "title": "XDP Tutorial 学习笔记",
+        "content": "学习一下 libbpf 下 XDP 的使用",
+        "attrs": ["bpf", "xdp"]
     }
 ]

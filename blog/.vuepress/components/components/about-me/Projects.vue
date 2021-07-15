@@ -1,8 +1,8 @@
 <template>
   <div id="projects">
-    <p v-for="(item,idx) in projects" :key="idx">
+    <p v-for="(item, idx) in projects" :key="idx">
       <b>&sdot;</b>
-      {{item}}
+      {{ item }}
     </p>
   </div>
 </template>

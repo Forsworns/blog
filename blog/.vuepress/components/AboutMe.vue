@@ -6,23 +6,23 @@
       </el-col>
       <el-col :span="16">
         <el-row>
-          <el-col :span="6">{{nameL}}</el-col>
-          <el-col :span="18">{{name}}</el-col>
+          <el-col :span="6">{{ nameL }}</el-col>
+          <el-col :span="18">{{ name }}</el-col>
         </el-row>
 
         <el-row>
-          <el-col :span="6">{{cityL}}</el-col>
-          <el-col :span="18">{{city}}</el-col>
+          <el-col :span="6">{{ cityL }}</el-col>
+          <el-col :span="18">{{ city }}</el-col>
         </el-row>
 
         <el-row>
-          <el-col :span="6">{{mailL}}</el-col>
-          <el-col :span="18">{{mail}}</el-col>
+          <el-col :span="6">{{ mailL }}</el-col>
+          <el-col :span="18">{{ mail }}</el-col>
         </el-row>
 
         <el-row>
           <el-col :span="24">
-            <a :href="cvRoute">{{cv}}</a>
+            <a :href="cvRoute">{{ cv }}</a>
           </el-col>
         </el-row>
       </el-col>
@@ -34,7 +34,7 @@
           <el-tab-pane v-for="(item, idx) in labels" :key="item">
             <span slot="label">
               <i class="icon" :class="icons[idx]"></i>
-              {{item}}
+              {{ item }}
             </span>
             <component :is="component" :lang="lang"></component>
           </el-tab-pane>
@@ -42,18 +42,18 @@
       </el-col>
     </el-row>
     <el-row>
-      <el-col>{{motto}}</el-col>
+      <el-col>{{ motto }}</el-col>
     </el-row>
   </div>
 </template>
 
 <script>
-import Information from "./components/Information";
-import Honors from "./components/Honors";
-import Projects from "./components/Projects";
-import Publications from "./components/Publications";
-import Services from "./components/Services";
-import Interests from "./components/Interests";
+import Information from "./components/about-me/Information";
+import Honors from "./components/about-me/Honors";
+import Projects from "./components/about-me/Projects";
+import Publications from "./components/about-me/Publications";
+import Services from "./components/about-me/Services";
+import Interests from "./components/about-me/Interests";
 
 export default {
   name: "AboutMe",
@@ -145,7 +145,7 @@ export default {
           "See all I need is a whisper, in a world that only shouts",
           `We laughed and kept saying"see you soon",but inside we both knew we'd never see each other again.`,
           "I'm at a payphone trying to call home, all of my change I spent on you. Where have the times gone?",
-		  "I see Barsad, and Cly, Defarge, The Vengeance, the Jurymen, the Judge, long ranks of the new oppressors who have risen on the destruction of the old, perishing by this retributive instrument, before it shall cease out of its present use.",
+          "I see Barsad, and Cly, Defarge, The Vengeance, the Jurymen, the Judge, long ranks of the new oppressors who have risen on the destruction of the old, perishing by this retributive instrument, before it shall cease out of its present use.",
           "Who's gonna rock you when the sun won't let you sleep? Who's waking up to drive you home when you're drunk and all alone? Who's gonna walk you through the dark side of the morning?",
         ],
         labels: [

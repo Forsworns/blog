@@ -1,6 +1,6 @@
 <template>
   <div id="publications">
-    <p v-for="(item, idx) in papers" :key="idx">[{{idx+1}}] {{item}}</p>
+    <p v-for="(item, idx) in papers" :key="idx">[{{ idx + 1 }}] {{ item }}</p>
   </div>
 </template>
 
