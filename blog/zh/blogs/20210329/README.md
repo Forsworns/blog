@@ -72,7 +72,6 @@ BPF 在内核中的执行都是事件驱动的，例如：
 
 ![](./ebpf_event.png)
 
-
 ## BPF 指令集
 
 这部分翻译自 uBPF 的文档，它是上面提到的一个 BPF JIT Complier 的实现。
@@ -257,7 +256,7 @@ msb      lsb
 
 更加详细的协议参考[内核 bpf 相关文档](#Reference)
 
-## 常见 bpf_prog_type 定义
+## 常见的 bpf_prog_type 
 
 | **bpf_prog_type**               | **BPF prog** 入口参数（R1)                                   | **程序类型**                                                 |
 | ------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -271,13 +270,26 @@ msb      lsb
 
 与网络相关的有XDP、socket、tc等。
 
-## 组件
+事实上 BPF 程序类型就是由 BPF side 的代码的函数参数确定的，比如写了一个函数，参数是 `struct __sk_buff` 类型的，它就是一个 **BPF_PROG_TYPE_SOCKET_FILTER** 类型的 BPF 程序。
+
+## 其他的 BPF 相关概念
 
 ### Helper Function
 
-Helper functions 是一些与内核交互的常用 API， 可以从内核获取或写入数据。不同的 BPF 程序类型 bpf_prog_type 可用的 helper function 不同，例如与 socket 有关的 BPF 函数就只允许使用一小部分的 helpers，而与 tc （traffic control 的缩写，更加靠近传输层，而且此时包都还没解析）相关的 BPF 函数可以调用更多的 helpers。
+BPF 系统调用的原型如下：
 
-内核将 helper 函数抽象到了宏 `BPF_CALL_0()` 到 `BPF_CALL_5()`，类似于系统调用。下面这个例子就节选自一个用来更新映射元素的 helper function，它调用了映射上实现的相关的回调函数
+```c
+#include <linux/bpf.h>
+int bpf(int cmd, union bpf_attr *attr, unsigned int size);
+```
+
+bpf系统调用要执行的操作由 `cmd` 参数确定。每个操作都有一个附带的参数，通过 `attr` 提供，`size` 参数是 `attr` 的大小。
+
+`cmd` 参数可以是一系列 helper 的宏定义，如 BPF_MAP_CREATE、 BPF_MAP_LOOKUP_ELEM、BPF_MAP_UPDATE_ELEM、BPF_MAP_DELETE_ELEM、BPF_MAP_GET_NEXT_KEY、BPF_PROG_LOAD；分别是对应 map 创建、map 中元素查找、map 中更新元素、map 中删除元素、获取相邻的 key、加载 bpf 程序。`bpf_attr` 则相当复杂，不展开说了，实际上也很少直接使用该系统调用，都是使用 BPF helper 函数的。
+
+Helper functions 是一些与内核交互的常用 API， 可以从内核获取或写入数据。不同的 BPF 程序类型 `bpf_prog_type` 可用的 helper function 不同，例如与 socket 有关的 BPF 函数就只允许使用一小部分的 helpers，而与 tc （traffic control 的缩写，更加靠近传输层，而且此时包都还没解析）相关的 BPF 函数可以调用更多的 helpers。
+
+内核将 helper 函数抽象到了宏 `BPF_CALL_0()` 到 `BPF_CALL_5()`，让定义过程更加简单，更加可读。下面这个例子就节选自一个用来更新映射元素的 helper function，它调用了映射上实现的相关的回调函数
 
 ```c
 // 注意这是一个宏
@@ -317,6 +329,12 @@ In-kernel Verifier还会验证：
 - 支持运行尾调用（tail calls），即在 eBPF 程序末尾调用另一个 eBPF 程序，但是也是有限制的，最多可以嵌套 33 次 尾调用
 - BPF helper 函数中最多允许5个函数参数
 
+verifier执行的第一个检查是对VM将要加载的代码的静态分析。第一次检查的目的是确保程序有一个预期的结束。为此，verifier 使用代码创建一个直接非循环图（DAG）。verifier 分析的每条指令都成为图中的一个节点，每个节点都链接到下一条指令。在 verifier 生成这个图之后，它将执行深度优先搜索（DFS），以确保程序完成并且代码不包含危险路径。这意味着它将遍历图的每个分支，一直遍历到分支的底部，以确保没有递归循环。
+
+verifier 执行的第二个检查是BPF程序的一个空运行。这意味着verifier将尝试分析程序将要执行的每条指令，以确保它不会执行任何无效的指令。此执行还检查是否正确访问和取消引用了所有内存指针。最后，空运行将程序中的控制流通知 verifier，以确保无论程序采用哪种控制路径，它都会到达 BPF_EXIT 指令。为此，verifier 跟踪堆栈中所有已访问的分支路径，在选择新路径之前对其进行评估，以确保不会多次访问特定路径。在这两个检查通过之后，verifier 认为程序可以安全地执行。
+
+bpf 系统调用允许您 debug verifier 的检查，如果您对分析程序如何被分析感兴趣的话。使用此系统调用加载程序时，可以设置几个属性，使验证器打印其操作日志。
+
 ### Maps
 
 BPF 映射是内核中的键值型数据结构，他们能够从 BPF 程序中获取，来在不同的 BPF 调用之间传递状态信息。他们也能通过用户空间的文件描述符来获取，也能在 BPF 程序或用户空间的应用之间共享。注意共享 BPF 映射的 BPF 程序不一定是相同的程序类型，例如，一个 tracing 程序也可能可以和网络程序共享映射，当下一个单独的 BPF 程序最多可以同时获取到 64 个不同的映射。
@@ -326,6 +344,28 @@ BPF 映射是内核中的键值型数据结构，他们能够从 BPF 程序中�
 映射的实现是在内核中，有通用的，也有仅能在少数 helper functions 中使用的。通用的映射有`BPF_MAP_TYPE_HASH`, `BPF_MAP_TYPE_ARRAY`, `BPF_MAP_TYPE_PERCPU_HASH`, `BPF_MAP_TYPE_PERCPU_ARRAY`, `BPF_MAP_TYPE_LRU_HASH`, `BPF_MAP_TYPE_LRU_PERCPU_HASH` and `BPF_MAP_TYPE_LPM_TRIE`。他们都是用的是相同的 BPF helper functions 来实现增删查改，同时针对不同的语义和应用特征实现了不同的后端操作。
 
 现有的不通用的映射有 `BPF_MAP_TYPE_PROG_ARRAY`, `BPF_MAP_TYPE_PERF_EVENT_ARRAY`, `BPF_MAP_TYPE_CGROUP_ARRAY`, `BPF_MAP_TYPE_STACK_TRACE`, `BPF_MAP_TYPE_ARRAY_OF_MAPS`, `BPF_MAP_TYPE_HASH_OF_MAPS`。例如，`BPF_MAP_TYPE_PROG_ARRAY` 是一个包含有其他 BPF 程序的数组， `BPF_MAP_TYPE_ARRAY_OF_MAPS` 和 `BPF_MAP_TYPE_HASH_OF_MAPS` 都持有着指向其他映射的指针，为了在运行时能原子地更换 BPF 映射。通过这种实现满足了这个特殊的需求。因为状态是需要在不同的 BPF 程序调用中共享的，所以不能单独通过一个 BPF helper function实现，而是要用这种方法。
+
+补充 MAP 类型细节：
+
+- BPF_MAP_TYPE_HASH：第一个添加到BPF的通用 map。它们的实现和用法类似于您可能熟悉的其他哈希表。
+- BPF_MAP_TYPE_ARRAY：添加到内核的第二种 BPF 映射。它的所有元素都在内存中预先分配并设置为零值。键是数组中的索引，它们的大小必须正好是4个字节。使用 Array maps 的一个缺点是不能删除map中的元素。如果尝试在 array maps 上使用map_delete_elem，则调用将失败，结果将导致错误 EINVAL。
+- BPF_MAP_TYPE_PROG_ARRAY：您可以使用这种类型的 map,来存储BPF程序的文件描述。与 bpf_tail_call 调用结合，此 map 允许您在程序之间跳转，绕过单个 bpf 程序的最大指令限制，并降低实现复杂性。
+- BPF_MAP_TYPE_PERF_EVENT_ARRAY：这些类型的 map 将 perf_events 数据存储在缓冲环中，缓冲环在BPF程序和用户空间程序之间实时通信。它们被设计用来将内核的跟踪工具发出的事件转发给用户空间程序进行进一步处理。
+- BPF_MAP_TYPE_PERCPU_HASH：Per-CPU Hash Maps 是 BPF_MAP_TYPE_HASH 的改进版本。当您分配其中一个 map 时，每个CPU都会看到自己独立的map版本，这使得它更高效地进行高性能的查找和聚合。如果您的BPF程序收集度量并将它们聚合到 hash-table maps中，那么这种map非常有用。
+- BPF_MAP_TYPE_PERCPU_ARRAY：Per-CPU Array Maps 是 BPF_MAP_TYPE_ARRAY 的改进版本。当您分配这些 map 中的一个时，每个CPU都会看到自己的独立版本的 map，这使得它更高效地进行高性能的查找和聚合。
+- BPF_MAP_TYPE_STACK_TRACE：这种类型的 map 存储运行进程的堆栈跟踪。除了这个 map 之外，内核开发人员已经添加了帮助函数bpf_get_stackid来帮助您用堆栈跟踪填充这个映射。
+- BPF_MAP_TYPE_CGROUP_ARRAY：这种类型的 map 存储指向 cgroup 的文件描述符标识符。
+  BPF_MAP_TYPE_LRU_HASH and BPF_MAP_TYPE_LRU_PERCPU_HASH：如果 map 满了，删除不常使用的 map，为新元素提供空间。percpu 则是针对每个 cpu。
+- BPF_MAP_TYPE_LPM_TRIE：一个匹配最长前缀的字典树数据结构，适用于将 IP 地址匹配到一个范围。这些 map 要求其 key 大小为 8 的倍数，范围为 8 到 2048。如果您不想实现自己的 key，那么内核提供了一个可以用于这些 key 的结构，称为 bpf_lpm_trie_key。
+- BPF_MAP_TYPE_ARRAY_OF_MAPS and BPF_MAP_TYPE_HASH_OF_MAPS：存储对其他映射的引用的两种类型的映射。它们只支持一个级别的间接寻址。
+- BPF_MAP_TYPE_DEVMAP：存储对网络设备的引用。可以构建指向特定网络设备的端口的虚拟映射，然后使用 bpf_redirect_map 重定向数据包。
+- BPF_MAP_TYPE_CPUMAP：可以将数据包转发到不同的 cpu
+- BPF_MAP_TYPE_XSKMAP：一种存储对打开的套接字的引用的映射类型。用于套接字转发。
+- BPF_MAP_TYPE_SOCKMAP和BPF_MAP_TYPE_SOCKHASH 是两个专门的 map。它们存储对内核中打开的套接字的引用。与前面的映射一样，这种类型的映射与 bpf_redirect_map 一起使用，将套接字缓冲区从当前 XDP 程序转发到不同的套接字。
+- BPF_MAP_TYPE_CGROUP_STORAGE 和 BPF_MAP_TYPE_PERCPU_CGROUP_STORAGE：略
+- BPF_MAP_TYPE_REUSEPORT_SOCKARRAY：略
+- BPF_MAP_TYPE_QUEUE：队列映射使用先进先出（FIFO）存储来保存映射中的元素。它们是用 BPF_MAP_TYPE_QUEUE 类型定义的。FIFO 意味着，当您从映射中获取一个元素时，结果将是映射中存在时间最长的元素。
+  BPF_MAP_TYPE_STACK：栈映射使用后进先出（LIFO）存储来保存映射中的元素。它们是用类型 BPF_MAP_TYPE_STACK 定义的。后进先出意味着，当您从映射中获取元素时，结果将是最近添加到映射中的元素。
 
 ### Object Pinning
 
@@ -712,4 +752,6 @@ Facebook 的 BPF 相关团队成员[博客](https://nakryiko.com/)，大部分�
 [GNU ARM Quick Reference](https://www.ic.unicamp.br/~celio/mc404-2014/docs/gnu-arm-directives.pdf)
 
 [C/C++跨平台宏定义](https://sourceforge.net/p/predef/wiki/Home/)
+
+[bpf map简介](https://blog.csdn.net/sinat_38816924/article/details/115607570)
 

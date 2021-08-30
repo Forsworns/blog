@@ -65,7 +65,7 @@
     {
         "date": "2020/08/17",
         "title": "学习rCore",
-        "content": "参考rCore教程用rust写一个简单的内核"
+        "content": "参考rCore教程用Rust写一个简单的内核"
     },
     {
         "date": "2020/08/18",
@@ -83,13 +83,13 @@
         "date": "2021/01/20",
         "title": "Rust：克隆trait object？",
         "content": "Rust中克隆Trait Object遇到的坑",
-        "attrs": ["rust"]
+        "attrs": ["Rust"]
     },
     {
         "date": "2021/01/23",
         "title": "Rust：如何创建一个的递归的trait？",
         "content": "Rust中创建一个递归的Trait的“一百种”实现方式",
-        "attrs": ["rust"]
+        "attrs": ["Rust"]
     },
     {
         "date": "2021/02/03",
@@ -113,10 +113,10 @@
         "date": "2021/02/24",
         "title": "Rust宏学习笔记",
         "content": "Keep Learning！",
-        "attrs": ["rust"]
+        "attrs": ["Rust"]
     },
     {
-        "date": "2021/02/24",
+        "date": "2021/02/26",
         "title": "虚拟化基础学习笔记",
         "content": "基础知识",
         "attrs": ["虚拟化"]
@@ -137,7 +137,7 @@
         "date": "2021/03/12",
         "title": "Rust 基础备忘",
         "content": "大基本功",
-        "attrs": ["rust"]
+        "attrs": ["Rust"]
     },
     {
         "date": "2021/03/14",
@@ -153,7 +153,7 @@
     {
         "date": "2021/03/29",
         "title": "eBPF 用户空间虚拟机实现相关",
-        "content": "用户态虚拟机实现",
+        "content": "用户态虚拟机实现、eBPF 的更多知识",
         "attrs": ["bpf","虚拟化"]
     },
     {
@@ -191,5 +191,17 @@
         "title": "XDP Tutorial 学习笔记",
         "content": "学习一下 libbpf 下 XDP 的使用",
         "attrs": ["bpf", "xdp"]
+    },
+    {
+        "date": "2021/07/28",
+        "title": "转载：泛型和元编程的模型：Java, Go, Rust, Swift, D等",
+        "content": "很有趣的文章，类似的推荐阅读《七周七语言：理解多种编程范型》",
+        "attrs": ["转载", "泛型"]
+    },
+    {
+        "date": "2021/08/22",
+        "title": "原子类型及原子操作的内存顺序",
+        "content": "从内存模型谈起：C++/Rust 原子类型、原子操作的内存顺序",
+        "attrs": ["并发", "C++", "Rust"]
     }
 ]

@@ -5,12 +5,11 @@ tag: 笔记
 
 ---
 
+[[toc]]
 
 # XDP Tutorial 学习笔记
 
 xdp 的相关论文发在 2018 年 CONEXT 上，文章名称是 "The eXpress Data Path: Fast Programmable Packet Processing in the Operating System Kernel"，是 OA 的，可以直接[下载来看](https://dl.acm.org/doi/10.1145/3281411.3281443)。
-
-xdp 没有完全绕过内核，但是可以让包跳过内核的网络栈，直接从用户空间读取。
 
 学习一下 xdp 官方提供的教程，项目地址额为 [xdp-project/xdp-tutorial: XDP tutorial](https://github.com/xdp-project/xdp-tutorial)。该教程依赖的 libbpf 是19年的一版，直接用新版会有问题，需要下项目里的子模块指定的 [libbpf/libbpf at b91f53ec5f1aba2a9d01dc00c4434063abd921e8](https://github.com/libbpf/libbpf/tree/b91f53ec5f1aba2a9d01dc00c4434063abd921e8)。
 
@@ -18,9 +17,9 @@ xdp 没有完全绕过内核，但是可以让包跳过内核的网络栈，直�
 
 比较基础的章节是 `basic01` 到 `basic04` 目录下的内容。
 
-- basic02：讲解了 libbpf 怎么加载 bpf 代码的。让读者自己实现一个简化的加载过程。用户实现的函数，使用 `_` 前缀与 xdp 团队提供的 api 相区分。相应的 api 是没有 `_` 前缀的，位于 `common` 目录下。例如，`common/common_user_bpf_xdp.c` 下的`load_bpf_and_xdp_attach()` 函数。
-- basic03：讲解了 bpf map 的使用。
-- basic04：讲解了跨应用共享 bpf map，使用的是 pinning maps 技术。
+- `basic02`：讲解了 libbpf 怎么加载 bpf 代码的。让读者自己实现一个简化的加载过程。用户实现的函数，使用 `_` 前缀与教程中 xdp 团队提供的 api 相区分。相应的 api 是没有 `_` 前缀的，位于 `common` 目录下。例如，`common/common_user_bpf_xdp.c` 下的`load_bpf_and_xdp_attach()` 函数。
+- `basic03`：讲解了 bpf map 的使用。
+- `basic04`：讲解了跨应用共享 bpf map，使用的是 pinning maps 技术。
 
 `tracing01` 到 `tracing04` 是做 tracing 方面的应用。
 
@@ -32,17 +31,42 @@ xdp 没有完全绕过内核，但是可以让包跳过内核的网络栈，直�
 
 这些教程中的 Assignment 的答案分布：`advance` 和 `tracing` 部分的答案就是在代码里的。`basic` 和 `packet` 部分的是在 `basic-solutions` 和`packet-solutions` 目录下。
 
-## Advance03 笔记
+## Advance03 示例的笔记
 
-首先简要记录一下 `AF_XDP` 套接字，译自上面提到的 kernel 的文档。
+xdp 没有完全绕过内核，但是可以让包跳过内核的网络栈，直接从用户空间读取，可以通过 `AF_XDP` 的 `XDP_REDIRECT` 语义实现。
 
-`AF_XDP` socket， 缩写为 XSK，可以通过系统调用 `socket()` 创建。每个 XSK 都有两个环来存储数据，一个 RX ring 和一个 TX ring。套接字能够用 RX ring 接收包，通过 TX ring 发送包。这些环是通过 `setsockopts` 中的选项 `XDP_RX_RING` 和 `XDP_TX_RING` 设置的。每个套接字至少需要其中的一个（以作为单侧的 source/sink node）。RX/TX ring 指向内存中一块叫做 UMEM 的数据。RX 和 TX 能够共享同一块 UMEM 区域，以防在 RX 和 TX 之间频繁地进行数据拷贝。另外，如果由于潜在的重传，一个包需要被保存一段时间，这些指针也能暂时指向别的包，避免拷贝数据。
+首先简要记录一下 `AF_XDP` 套接字。`AF_XDP` socket， 缩写为 XSK，可以通过系统调用 `socket()` 创建。每个 XSK 都有两个环来存储数据，一个 RX ring 和一个 TX ring。套接字能够用 RX ring 接收包，通过 TX ring 发送包。这些环是通过 `setsockopts` 中的选项 `XDP_RX_RING` 和 `XDP_TX_RING` 设置的。每个套接字至少需要其中的一个（以作为单侧的 source/sink node）。RX/TX ring 指向内存中一块叫做 UMEM 的数据。RX 和 TX 能够共享同一块 UMEM 区域，以防在 RX 和 TX 之间频繁地进行数据拷贝。另外，如果由于潜在的重传，一个包需要被保存一段时间，这些指针也能暂时指向别的包，避免拷贝数据。
 
-UMEM 包含了一些大小相同的块，环中的指针会引用它们的地址来引用这些块。这个地址就是在整个 UMEM 区域中的偏移量。用户空间负责为 UMEM 分配内存，分配的方法很灵活，可以用 malloc、mmap、huge pages 等形式。这个内存空间通过 `setsockopt` 中的 `XDP_UMEM_REG` 注册到内核中。
+在 BPF 侧的 AF_XDP 程序，参数是 `struct xdp_md`，包含原始 frame 的数据。可以返回一些状态来表示对该 frame 的处理意见，比如：
 
-下面去读代码。
+- `XDP_PASS`：继续传递到 Linux 后续的协议栈中处理。
+- `XDP_REDIRECT`：将包通过 UMEM 传递到用户空间处理。
+- `XDP_DROP`：直接丢弃这个包。
+- `XDP_TX` 可以直接发回给网卡，可以用来在内核中做快速的回复。比如下面 Advance03 中做的事情，去交换 ICMP 报文的发送方和接收方。该例子其实可以在内核中完成，然后用 `XDP_TX` 发回去，不是必须 redirect 到用户空间再做。
 
-打开 `advanced03-AF_XDP/af_xdp_kern.c`，它很精简，只有四十行代码，首先定义了两个 bpf map，一个存储 XSK，一个存储包的数量数据。然后定义了一个 bpf 程序，放在了 `xdp_sock` 段中，用 bpf helper 函数来和定义好的 bpf map 交互。注意其中的代码
+### AF_XDP 的性能提升从何而来？
+
+AF_XDP socket 非常快，在这个性能提升的背后隐藏了多少秘密呢？ AF_XDP 的 idea 背后的基础可以追溯到 [Van Jacobson](https://en.wikipedia.org/wiki/Van_Jacobson) 的关于 [network channels](https://lwn.net/Articles/169961/) 的报告中。在该报告中，描述了如何直接从驱动的 RX-queue （接收队列）去创建一个无锁的 [channel](https://lwn.net/Articles/169961/) 构建 AF_XDP socket。
+
+（前面介绍 `AF_XDP` 的内容也提到了），AF_XDP 使用的队列是 Single-Producer/Single-Consumer (SPSC) 的描述符（descriptor）环形队列：
+
+- **Single-Producer** (SP) 绑定到了某个特定的 RX **queue id** 上，通过 NAPI-softirq 确保在软中断（softirq）触发期间，只有一个 CPU 来处理一个 RX-queue id。
+
+  :::tip
+
+  NAPI 是 Linux 上采用的一种提高网络处理效率的技术，它的核心概念就是不采用中断的方式读取数据，否则包太多了，不停触发中断。而代之以首先采用中断唤醒数据接收的服务程序，然后 POLL 的方法来轮询数据。
+
+  :::
+
+- **Single-Consumer** (SC) 则是一个应用，从环中读取指向 UMEM 区域的描述符（descriptor）。
+
+因此不需要对每个包都分配一次内存。可以在事先为 UMEM 内存区域进行分配（因此 UMEM 是有界的）。UMEM 包含了一些大小相同的块，环中的指针会引用它们的地址来引用这些块。这个地址就是在整个 UMEM 区域中的偏移量。用户空间负责为 UMEM 分配内存，分配的方法很灵活，可以用 malloc、mmap、huge pages 等形式。这个内存空间通过在 `setsockopt()` 方法中设置 `XDP_UMEM_REG` 触发相应的系统调用，注册到内核中。**需要注意的是**：这样就意味着你需要负责及时地将 frame 返回给 UMEM，并且需要为你的应用提前分配足够的内存。
+
+Van Jacobson 在报告中谈到的 [transport signature](http://www.lemis.com/grog/Documentation/vj/lca06vj.pdf)，在 XDP/eBPF 程序中体现为选择将 frame `XDP_REDIRECT` 到哪个 AF_XDP socket。
+
+### 示例代码阅读
+
+打开 `advanced03-AF_XDP/af_xdp_kern.c`，它很精简，只有四十行代码。首先定义了两个 bpf map，一个存储 XSK，一个存储包的数量数据。然后定义了一个 bpf 程序，它的参数是 `struct xdp_md`，所以它是一个 **BPF_PROG_TYPE_XDP** 类型的 BPF 程序。这段程序通过 `SEC()` 宏放在了`xdp_sock` 段中，用 bpf helper 函数来和定义好的 bpf map 交互。注意其中的代码
 
 ```c
 /* We pass every other packet */
@@ -131,6 +155,42 @@ static bool process_packet(struct xsk_socket_info *xsk, uint64_t addr, uint32_t 
 ```
 
 至此该节内容结束。
+
+### 可能碰到的问题
+
+- 首先这些 BPF 相关的 demo 都是需要 `sudo` 去跑的，需要管理员权限。
+- 系统内核太旧了，本身不支持 `AF_XDP` socket。
+
+- 最常见的错误：为什么我在 AF_XDP socket 上看不到任何流量？
+
+  正如你在上面了解到的，AF_XDP socket 绑定到了一个 **single RX-queue id** （出于性能考量）。因此，用户空间的程序只会收到某个特定的 RX-queue id  下的 frames。然而事实上网卡会通过 RSS-Hashing，把流量散列到不同的 RX-queues 之间。因此，流量可能没有到达你所期望的那个队列。
+
+  :::tip
+
+  RSS (Receive Side Scaling) Hashing 是一种能够在多处理器系统下使接收报文在多个CPU之间高效分发的网卡驱动技术。网卡对接收到的报文进行解析，获取IP地址、协议和端口五元组信息。网卡通过配置的 HASH 函数根据五元组信息计算出 HASH 值,也可以根据二、三或四元组进行计算。取HASH值的低几位（这个具体网卡可能不同）作为 RETA (redirection table) 的索引，根据 RETA 中存储的值分发到对应的 CPU。
+
+  :::
+
+  为了解决这个问题，你必须配置网卡，让流进入一个特定的 RX-queue，可以通过 ethtool 或 TC HW offloading filter 设置。下面的例子展示了如何配置网卡，将所有的 UDP ipv4 流量都导入 *RX-queue id* 42：
+
+  ```
+  ethtool -N <interface> flow-type udp4 action 42
+  ```
+
+  参数 *action* 指定了目标 *RX-queue*。一般来说，上面的这个流量转发的规则包含了匹配准则和 action。L2、L3 和 L4 header 值能被用来指定匹配准则。如果想要阅读更详细的文档，请查看 ethtool 的 man page （`man ethtool`）。它记载了 header 中所有能够用来作为匹配准则的值。
+
+  其他替代的方案：
+
+  1. 创建和 RX-queue 数量相同的  AF_XDP sockets，然后由用户空间使用 `poll/select` 等方法轮询这些 sockets。
+  2. 出于测试目的，也可以把 RX-queue 的数量削减到 1，例如：使用命令 `ethtool -L <interface> combined 1`。
+
+  但是在用 `testenv/testenv.sh` 脚本虚拟出来的网卡用不了 `ethtool` 的上面这些和 RX-queue 相关的命令。
+
+### zero-copy 模式
+
+正如前面提过的 AF_XDP 依赖于驱动的 `XDP_REDIRECT` action 实现。对于所有实现了 `XDP_REDIRECT` action 的驱动，就都支持 “copy-mode” 下的 AF_XDP。“copy-mode” 非常快，只拷贝一次 frame（包括所有 XDP 相关的 meta-data）到 UMEM 区域。用户空间的 API 也是如此。
+
+为了支持 AF_XDP 的 “zero-copy” 模式，驱动需要在 NIC RX-ring 结构中直接实现并暴露出注册和使用 UMEM 区域的 API，以便使用 DMA。针对你的应用场景，在支持 “zero-copy”  的驱动上使用 “copy-mode” 仍然可能是有意义的。如果出于某些原因，并不是 RX-queue 中所有的流量都是要发给 AF_XDP socket 的，XDP 程序在 `XDP_REDIRECT` 和 `XDP_PASS` 间交替，如上面的 Advance03 示例中的那样，那么 “copy-mode” 可能是更好的选择。因为在 “zero-copy” 模式下使用 XDP_PASS 的代价很高，涉及到了为 frame 分配内存和执行内存拷贝。
 
 ## 其他可以参考的资料
 

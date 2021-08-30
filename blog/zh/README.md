@@ -10,10 +10,10 @@ actionLink: /zh/about-me/
 footer: MIT Licensed | Powered by VuePress
 ---
 
-                                                                                
+                                                                                  
  
- -  [使用 libbpf-bootstrap 构建 BPF 程序](/zh/blogs/20210627/) libbpf介绍，相关博客翻译笔记
+ -  [BPF Type Format (BTF)](/zh/blogs/20210706/) BPF Type Format (BTF) 文章翻译笔记
  
  
- -  [BPF Type Format (BTF)](/zh/blogs/20210627/) BPF Type Format (BTF) 文章翻译笔记
+ -  [XDP Tutorial 学习笔记](/zh/blogs/20210715/) 学习一下 libbpf 下 XDP 的使用
  

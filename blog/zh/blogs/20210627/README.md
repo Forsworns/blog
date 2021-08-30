@@ -123,7 +123,7 @@ int handle_tp(void *ctx)
 
 `SEC("tp/syscalls/sys_enter_write") int handle_tp(void *ctx) { ... }` 定义了 BPF 程序，它会被加载到内核中。它是由一个普通的 C 函数定义的，使用 `SEC()` 宏放在一个特殊的段中。段名定义了 libbpf 程序创建的是什么类型的 BPF 程序，以及它是附着到内核上哪个地方的。在这个例子中，我们是定义了一个 tracepoint BPF 程序，每次用户空间的应用调用了系统调用 `write()` 的时候，就会触发它。
 
-> 在同一个 BPF C 程序文件中，可能有多个 BPF 程序。他们可以是不同类型的，即有着不同的 `SEC()` 注解。例如，你可以用不同的 BPF 程序追踪不同的系统调用或其他事件（如网络包的处理）。你也可以使用相同的 `SEC()` 宏来定义多个 BPF 程序，libbpf 会自动处理他们。在同一个 BPF C 代码文件中的所有的 BPF 程序共享所有的全局状态，例如上面例子中的 `my_pid` 变量，如果使用了 BPF map，它也是共享的。这常常用在 BPF 程序的协作中。
+> 在同一个 BPF C 程序文件中，可能有多个 BPF 程序。他们可以是不同类型的，有着不同的 `SEC()` 宏。例如，你可以用不同的 BPF 程序追踪不同的系统调用或其他事件（如网络包的处理）。你也可以使用相同的 `SEC()` 宏来定义多个 BPF 程序，libbpf 会自动处理他们。在同一个 BPF C 代码文件中的所有的 BPF 程序共享所有的全局状态，例如上面例子中的 `my_pid` 变量，如果使用了 BPF map，它也是共享的。这常常用在 BPF 程序的协作中。
 
 下面仔细看看 BPF 程序 `handle_tp` 是在干嘛：
 
@@ -490,3 +490,207 @@ BPF CO-RE (Compile Once – Run Everywhere) 是一个很大的话题， [另有�
 ## Conclusion
 
 这篇文章大概囊括了 `libbpf-bootstrap` 和 BPF/libbpf 的方方面面。希望 `libbpf-bootstrap` 让你度过 BPF 开发的起步阶段，避免配置环境的痛苦，让你的时间更多地用在 BPF 本身上。对于更有经验的 BPF 开发者，这篇文章应该已经揭示了 BPF 在可用性方面的提升，如 BPF skeleton、BPF ringbuf、BPF CO-RE，以防你没有紧密地追踪 BPF 的最新进展。
+
+## 补充 BPF Map 相关内容
+
+该部分内容来自本博客之前引用过的一篇文章，[原文链接](https://blog.csdn.net/sinat_38816924/article/details/115607570) 。作者是阅读了 [Linux Observability with BPF](https://www.oreilly.com/library/view/linux-observability-with/9781492050193/) 这本书做的笔记，这本书的电子版在 [Z-Library](https://z-lib.org/) 上能找到。
+
+消息传递来唤醒程序的行为，在软件工程中很常见。一个程序可以通过发送消息来修改另一个程序的行为；这也允许这些程序之间交换信息。关于 BPF 最吸引人的一个方面是，运行在内核上的代码和加载所述代码的用户空间程序可以在运行时使用消息传递相互通信。BPF maps 用来实现此功能。BPF maps 是驻留在内核中的键/值存储。任何知道它们的 BPF 程序都可以访问它们。在用户空间中运行的程序也可以使用文件描述符访问这些映射。只要事先正确指定数据大小，就可以在 maps 中存储任何类型的数据。
+
+### 使用BPF系统调用操作 BPF maps
+
+bpf 系统调用的原型如下：
+
+```c
+#include <linux/bpf.h>
+int bpf(int cmd, union bpf_attr *attr, unsigned int size);
+```
+
+例如创建一个 hash-table map。其中key和value都是无符号整形。
+
+```c
+union bpf_attr my_map {
+    .map_type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(int),
+    .value_size = sizeof(int),
+    .max_entries = 100,
+    .map_flags = BPF_F_NO_PREALLOC,
+};
+int fd = bpf(BPF_MAP_CREATE, &my_map, sizeof(my_map));
+```
+
+### 使用 BPF helper 创建BPF maps
+helper函数bpf_map_create包装了刚才看到的代码，以便更容易根据需要初始化映射。我们可以使用它创建上一个map，只需一行代码：
+
+```c
+int fd;
+fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(int), sizeof(int), 100,BPF_F_NO_PREALOC);
+```
+
+如果是将要加载到内核的代码，也可以如下这样创建map。创建原理是：`bpf_load.c` 扫描目标文件时候，解析到 maps section，会通过 bpf syscall 创建 maps。
+
+```c
+struct bpf_map_def SEC("maps") my_map = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(int),
+    .value_size = sizeof(int),
+    .max_entries = 100,
+    .map_flags = BPF_F_NO_PREALLOC,
+};
+```
+
+用户空间的程序，调用 `load_bpf_file` 函数，将 `bpf` 程序加载的内核。`load_bpf_file` 会扫描 bpf 程序（elf 格式）的各个 section。对于名为 maps 的 section，`load_bpf_file` 会从中提取出maps的信息，并调用 `syscall(__NR_bpf, 0, attr, size);` 系统调用，创建map。
+
+### Working with BFP Maps
+内核和用户空间之间的通信将是您编写的每个BPF程序的一个基本部分。给内核编写代码时访问 map 的 api 与给用户空间程序编写代码不同。对于 `bpf_map_update_elem` 这个程序：运行在内核的代码从 `bpf_helpers.h` 加载；运行在用户空间的代码从`tools/lib/bpf/bpf.h` 加载；这样区分的原因是，内核空间可以直接访问 maps；而用户空间访问 maps 需要通过文件描述符。在内核上运行，可以在原子方式更新元素。在用户空间运行的代码，内核需要复制值以用于更新 map。这个非原子操作，可能失败。如果失败，失败原因填充到全局变量 errno 中。
+
+对于5.4内核源码 bpf_helpers.h 的位置如下：
+
+```bash
+find . -name "bpf_helpers.h"
+# tools/testing/selftests/bpf/bpf_helpers.h
+```
+
+### 更新元素
+我们先看从内核中更新map的函数。
+
+```c
+// tools/testing/selftests/bpf/bpf_helpers.h
+static int (*bpf_map_update_elem)(void *map, const void *key, const void *value,
+				  unsigned long long flags) =
+	(void *) BPF_FUNC_map_update_elem;
+// #define BPF_FUNC_map_update_elem 2
+```
+
+内核中出现这些奇奇怪怪的数字很正常。我暂时不知道这个2是什么鬼。
+
+内核中的 bpf_map_update_elem 函数有四个参数。第一个是指向我们已经定义的 map 的指针。第二个是指向要更新的键的指针。因为内核不知道我们要更新的键的类型，所以这个方法被定义为指向 void 的不透明指针，这意味着我们可以传递任何数据。第三个参数是我们要插入的值。此参数使用与键参数相同的语义。我们在本书中展示了一些如何利用不透明指针的高级示例。您可以使用此函数中的第四个参数来更改map的更新方式。此参数可以采用三个值：
+
+如果传递0，则告诉内核如果元素存在，则要更新该元素；如果元素不存在，则要在映射中创建该元素。[0 可以用 BPF_ANY 宏表示]
+如果传递1，则告诉内核仅在元素不存在时创建该元素。[1 可以用 BPF_NOEXIST 宏表示]
+如果传递2，内核将只在元素存在时更新它。[2 可以用 BPF_EXIST 宏表示]
+
+也可以从用户空间程序中更新 map。执行此操作的帮助程序与我们刚才看到的类似；唯一的区别是，它们使用文件描述符访问 map，而不是直接使用指向 map 的指针。正如您所记得的，用户空间程序总是使用文件描述符访问 map。
+
+```c
+// tools/lib/bpf/bpf.h
+#ifndef LIBBPF_API
+#define LIBBPF_API __attribute__((visibility("default")))
+#endif
+LIBBPF_API int bpf_map_update_elem(int fd, const void *key, const void *value,
+				   __u64 flags);
+```
+
+这里的fd获取方式有两种。第一中，是使用 bpf_create_map 函数返回的 fd。也可以通过全局变量 map_fd 访问。
+
+### 读取元素
+`bpf_map_lookup_elem`：从 map 中读取内容。同样，也分为内核空间和用户空间两种形式。
+
+```c
+// 内核空间
+// tools/testing/selftests/bpf/bpf_helpers.h
+static void *(*bpf_map_lookup_elem)(void *map, const void *key) =
+	(void *) BPF_FUNC_map_lookup_elem;
+//#define BPF_FUNC_map_lookup_elem 1
+```
+
+```c
+// 用户空间
+// tools/lib/bpf/bpf.h
+#ifndef LIBBPF_API
+#define LIBBPF_API __attribute__((visibility("default")))
+#endif
+LIBBPF_API int bpf_map_lookup_elem(int fd, const void *key, void *value);
+```
+
+它们的第一个参数也有所不同；内核方法引用映射，而用户空间帮助程序将映射的文件描述符标识符作为其第一个参数。第三个参数是指向代码中要存储从映射中读取的值的变量的指针。
+
+### 删除元素
+同样有两种：运行在用户空间，运行在内核空间。如果删除的 key 不存在，返回一个负数；error 被设置成 ENOENT。
+
+```c
+static int (*bpf_map_delete_elem)(void *map, const void *key) =
+	(void *) BPF_FUNC_map_delete_elem;
+```
+
+```c
+LIBBPF_API int bpf_map_delete_elem(int fd, const void *key);
+```
+
+### 迭代遍历元素
+bpf_map_get_next_key，此指令仅适用于在用户空间上运行的程序。
+
+```c
+LIBBPF_API int bpf_map_get_next_key(int fd, const void *key, void *next_key);
+```
+
+第一个参数：map 的文件描述符。第二个参数：lookup_key，你希望查找的属性值对应的 key。第三个参数：next_key，map 中的 next key。
+
+当您调用这个帮助程序时，BPF 会尝试在这个 map 中找到作为查找键传递的键的元素；然后，它会用映射中相邻的键设置下一个next_key 参数。因此，如果您想知道哪个键在键 1 之后，您需要将 1 设置为 lookup_key，BPF 会将与之相邻的 key 设置为下一个next_key 参数的值。
+
+如果要打印映射中的所有值，可以使用 bpf_map_get_next_key 键和映射中不存在的查找键。这将强制 BPF 从地图的开头开始。
+
+当 bpf_map_get_next_key 到达 map 的末尾时候，返回一个负数，errno 值被设置成 ENOENT。
+
+您可以想象，bpf_map_get_next_key 可以从地图中的任何一点开始查找 key；如果您只希望另一个特定 key 的下一个 key，则不需要从map 的开头开始。
+
+另外，我们还需要知道 bpf_map_get_next_key 的另一个行为。许多编程语言会在迭代遍历之前，复制 map。因为遍历的时候，如果有代码删除将要遍历的元素，将会很危险。bpf_map_get_next_key 遍历的时候，没有复制 map。如果遍历的时候，map 中存在元素被删除，bpf_map_get_next_key 会自动跳过它。
+
+### 查找删除元素
+bpf_map_lookup_and_delete_elem：一个元素通过 key 进行搜索。搜索到之后，删除这个元素，同时将元素的值放在 value 中。这个也是仅仅适用于用户空间。
+
+```c
+LIBBPF_API int bpf_map_lookup_and_delete_elem(int fd, const void *key,void *value);
+```
+
+### 并发访问 map
+使用 BPF 映射的挑战之一是许多程序可以同时访问相同的映射。这会在我们的 BPF 程序中引入竞争条件。为了防止竞争情况，BPF 引入了 BPF 自旋锁的概念，它允许您在对 map 元素进行操作时锁定对 map 元素的访问。自旋锁仅适用于 array、hash 和 cgroup 存 maps。
+
+```c
+// 信号量
+// /usr/include/linux
+struct bpf_spin_lock {
+	__u32	val;
+};
+
+// 内核
+// 加锁+解锁
+// tools/testing/selftests/bpf/bpf_helpers.h
+static void (*bpf_spin_lock)(struct bpf_spin_lock *lock) =
+	(void *) BPF_FUNC_spin_lock;
+static void (*bpf_spin_unlock)(struct bpf_spin_lock *lock) =
+	(void *) BPF_FUNC_spin_unlock;
+```
+
+我这里复制下书上的事例。这个访问控制，精度比较细。对每一个元素使用了自旋锁。另外这个 map 必须用 BPF 类型格式（BPF Type Format, BTF）注释，这样 verifier 就知道如何解释这个结构。类型格式通过向二进制对象添加调试信息，使内核和其他工具对BPF数据结构有了更丰富的理解。
+
+```c
+struct concurrent_element {
+    struct bpf_spin_lock semaphore;
+    int count;
+}
+
+struct bpf_map_def SEC("maps") concurrent_map = {
+    .type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(int),
+    .value_size = sizeof(struct concurrent_element),
+    .max_entries = 100,
+};
+
+BPF_ANNOTATE_KV_PAIR(concurrent_map, int, struct concurrent_element);
+
+int bpf_program(struct pt_regs *ctx) {
+	int key = 0;
+    struct concurrent_element init_value = {};
+    struct concurrent_element *read_value;
+    bpf_map_create_elem(&concurrent_map, &key, &init_value, BPF_NOEXIST);
+    read_value = bpf_map_lookup_elem(&concurrent_map, &key);
+    bpf_spin_lock(&read_value->semaphore);
+    read_value->count += 100;
+    bpf_spin_unlock(&read_value->semaphore);
+}
+```
+
+用户空间更改 map 的话，使用 `bpf_map_update_elem` 和 `bpf_map_lookup_elem_flags` 的时候，添加 `BPF_F_LOCK` flags。
+
+
