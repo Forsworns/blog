@@ -192,6 +192,16 @@ static bool process_packet(struct xsk_socket_info *xsk, uint64_t addr, uint32_t 
 
 为了支持 AF_XDP 的 “zero-copy” 模式，驱动需要在 NIC RX-ring 结构中直接实现并暴露出注册和使用 UMEM 区域的 API，以便使用 DMA。针对你的应用场景，在支持 “zero-copy”  的驱动上使用 “copy-mode” 仍然可能是有意义的。如果出于某些原因，并不是 RX-queue 中所有的流量都是要发给 AF_XDP socket 的，XDP 程序在 `XDP_REDIRECT` 和 `XDP_PASS` 间交替，如上面的 Advance03 示例中的那样，那么 “copy-mode” 可能是更好的选择。因为在 “zero-copy” 模式下使用 XDP_PASS 的代价很高，涉及到了为 frame 分配内存和执行内存拷贝。
 
+### 在 STM32MP157A 开发板上跑这个 demo 碰到的问题
+
+1. 板载系统没有开启 AF_XDP_SOCKET 支持（幸亏厂商提供了基于 5.4.31 内核的 Ubuntu 18.04，而且提供了他们构建开发板时的项目源码，只需要改下配置项，重新编译下内核，但凡他们搞个低版本的，闹不好我就寄了）。那么需要在内核源码目录下的`.config` 中重新编译一份 arm 架构的内核，将生成的 uImage 镜像和设备树文件拷贝到板子的 `/boot` 目录下。板子我是用的 sd 卡安装的 ubuntu，boot 目录没有自动挂载到，还要到 `/dev` 下找到它所在的分区（记录一下，我自己的板子是 block1p4），对应的 u-boot 的配置文件中如果启动的路径不对，可能也要修改。这里就庆幸自己是拿的 sd 卡装的，不然在只能进入到 u-boot 终端的情况下，只用 tftp 还处理不了 `boot` 目录下错误的路径配置。
+
+2. 编译上面的例子时候，板子缺少 `libelf-dev` 包，会报错丢失 `<gelf.h>` 头文件。
+
+3. 编译上面的例子时候，板子的`/usr/include/` 下没有 `asm` 文件夹，只有 `asm_generic`。有人博客里写，给 `asm_generic` 链接到 `asm` 就行了。亲测不是如此，二者包含的头文件并不相同。 
+
+   后来发现该目录下，还有一个 `arm `开头的文件夹，推测里面应该包含了板子 `arm` 架构下的相关头文件。打开后果然如此，有一个`asm`，那么只需要在`/usr/include` 下做一个软连接 `ln -s` 到它，命名成 `asm` 就行了。
+
 ## 其他可以参考的资料
 
 Linux manual page 上的 [bpf-helpers](https://man7.org/linux/man-pages/man7/bpf-helpers.7.html) 页面。

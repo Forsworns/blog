@@ -10,10 +10,10 @@ actionLink: /zh/about-me/
 footer: MIT Licensed | Powered by VuePress
 ---
 
-                                                                                  
+                                                                                      
  
- -  [BPF Type Format (BTF)](/zh/blogs/20210706/) BPF Type Format (BTF) 文章翻译笔记
+ -  [转载：泛型和元编程的模型：Java, Go, Rust, Swift, D等](/zh/blogs/20210728/) 很有趣的文章，类似的推荐阅读《七周七语言：理解多种编程范型》
  
  
- -  [XDP Tutorial 学习笔记](/zh/blogs/20210715/) 学习一下 libbpf 下 XDP 的使用
+ -  [原子类型及原子操作的内存顺序](/zh/blogs/20210822/) 从内存模型谈起：C++/Rust 原子类型、原子操作的内存顺序
  

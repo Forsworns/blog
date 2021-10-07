@@ -63,9 +63,34 @@ macro_rules! vec {
 }
 ```
 
-`#[macro_export]`标签是用来声明：只要 use 了这个crate，就可以使用该宏。
+`#[macro_export]`标签是用来声明：只要 use 了这个crate，就可以使用该宏。同时包含被 export 出的宏的模块，在声明时必须放在前面，否则靠前的模块里找不到这些宏。
 
 按照官方文档的说法，`macro_rules!`目前有一些设计上的问题，日后将推出新的机制来取代他。但是他依然是一个很有效的语法扩展方法。
+
+这里一个注意点是：如果想要创建临时变量，那么必须要像上面这个例子这样，放在某个块级作用域内，以便自动清理掉，否则会认为是不安全的行为。
+
+:::声明宏中支持的语法树元变量类型
+
+出自 [Macros By Example - The Rust Reference](https://doc.rust-lang.org/reference/macros-by-example.html#metavariables)。
+
+回顾编译原理 :) 
+
+- `item`: 随便一个什么 [东西](https://doc.rust-lang.org/reference/items.html)，准确定义参考上述手册中
+- `block`: 一个 [块表达式](https://doc.rust-lang.org/reference/expressions/block-expr.html)
+- `stmt`: 一个 [语句](https://doc.rust-lang.org/reference/statements.html)，但是不包含结尾的分号，除了必须有分号的 item statements 
+- `pat_param`: 一个 [匹配模式](https://doc.rust-lang.org/reference/patterns.html)
+- `pat`: 等价于 `pat_param`
+- `expr`: 一个 [表达式](https://doc.rust-lang.org/reference/expressions.html)
+- `ty`: 一种 [类型](https://doc.rust-lang.org/reference/types.html#type-expressions)
+- `ident`: 一个 [标识符或关键字](https://doc.rust-lang.org/reference/identifiers.html)
+- `path`: 一条 [TypePath](https://doc.rust-lang.org/reference/paths.html#paths-in-types) 形式的路径
+- `tt`: [Token 树](https://doc.rust-lang.org/reference/macros.html#macro-invocation) （一个独立的 [token](https://doc.rust-lang.org/reference/tokens.html) 或一系列在匹配完整的定界符 `()`、`[]` 或 `{}` 中的 token）
+- `meta`:  [标签](https://doc.rust-lang.org/reference/attributes.html) 中的内容
+- `lifetime`:  一个 [生命周期标识](https://doc.rust-lang.org/reference/tokens.html#lifetimes-and-loop-labels)
+- `vis`: 可能不存在的 [可见性标记](https://doc.rust-lang.org/reference/visibility-and-privacy.html)（并不是所有函数、类型都会使用 `pub` 进行标记，所以可能是不存在的）
+- `literal`: 匹配 [文本表达式](https://doc.rust-lang.org/reference/expressions/literal-expr.html)
+
+:::
 
 ## 过程式宏
 
@@ -190,6 +215,124 @@ let sql = sql!(SELECT * FROM posts WHERE id=1);
 #[proc_macro]
 pub fn sql(input: TokenStream) -> TokenStream { ... }
 ```
+
+## 好用的库
+
+[proc_macro](https://doc.rust-lang.org/proc_macro/index.html)：默认 token 流库，只能在过程宏中使用，编译器要用它，将它作为过程宏的返回值，大多数情况我们不需要，只需要在宏返回结果的时候把 `proc_macro2::TokenSteam` 的流 `into()` 到 `proc_macro::TokenSteam` 就行了。
+
+[proc_macro2](https://crates.io/crates/proc_macro2)：我们真正在使用的过程宏库，可以在过程宏外使用。
+
+[syn](https://crates.io/crates/syn)：过程宏左护法，可以将 `TokenStream` 解析成语法树，注意两个 `proc_macro` 和 `proc_macro` 都支持，需要看文档搞清楚库函数到底是在解析哪个库中的 `TokenStream`。
+
+[quote](https://crates.io/crates/quote)：过程宏右护法，将语法树解析成 `TokenStream`。只要一个 `quote!{}` 就够了！`quote!{}` 宏内都是字面量，即纯纯的代码，要替换进去的变量是用的 `#` 符号标注，为了和声明宏中使用的 `$` 相区分（也就意味着用 `quote` 写过程宏的时候，可以和声明宏结合 🤤 ）。模式匹配时用到的表示重复的符号和声明宏中一样，是使用 `*`。 
+
+ [darling](https://crates.io/crates/darling) 好用到跺 jio jio 的标签宏解析库，让人直呼 Darling！
+
+## 收录有趣的宏样例
+
+本章收录到的宏尽可能短小、独立、有趣。
+
+### 你这写的啥啊
+
+记录一下自己写的一些有趣的宏，以防下次碰到这种情况忘记咋写。
+
+- 这里的实际需求是处理标签宏参数，用了 [darling](https://crates.io/crates/darling) 库做解析，然后处理一些 `Option` 类型的可选参数，如果标签宏参数中没有它（即 `darling` 解析出 `None`），就不理会它，在后续构造中使用默认值。感觉有意思的地方在于过程宏和声明宏的混合使用，在写出来之前我没想到这么写真能跑 = = 
+
+    ```rust
+    macro_rules! expand_attribute {
+        ($($attr:expr),*) => {
+            {
+                let mut token = TokenStream2::new();
+                $(if let Some(val) = $attr {
+                    token.extend(quote!{$attr: #val,});
+                })*
+                token
+            }
+        };
+    }
+    ```
+    
+    使用时是这么用的
+    
+    ```rust
+    use darling::FromMeta;
+    
+    #[derive(Debug, FromMeta)]
+    struct Attrs{
+        #[darling(default)]
+        pub param1: Option<f64>,
+        #[darling(default)]
+        pub param2: Option<f64>,
+        #[darling(default)]
+        pub param3: Option<f64>,
+    }
+    
+    #[derive(Debug, Default)]
+    struct Struct{
+        pub param1: f64,
+        pub param2: f64,
+        pub neccessary: String, // cannot be empty or any default value
+    }
+    
+    #[proc_macro_attribute]
+    pub fn an_attribute(attr: TokenStream, item: TokenStream) -> TokenStream {
+        let Attrs {
+            param1, 
+            param2, 
+            ... // Attrs::param3 is not useful in Struct
+        } =  match Attrs::from_list(&attr) {
+            Ok(v) => v,
+            Err(e) => {
+                return TokenStream::from(e.write_errors());
+            }
+        };
+        let optional_params = expand_attribute!(param1, param2);
+        let build_a_struct = quote! {
+            Struct {
+                neccessary: "0817", 
+                #optional_params
+                ..Default::default()
+            }
+        };
+        // TL;DR
+    }
+    ```
+    
+    看得出来还是比较繁琐的，
+    
+- 这里的实际需求是用标签宏修改原函数返回值为 Result，是在 [sentinel-group/sentinel-rust](https://github.com/sentinel-group/sentinel-rust) 的实现中，用来快速给一个函数或方法创建 sentinel 的。当时的想法是用 Result 来表达某个流是否被阻碍，同时可以传递 Sentinel 的告警给用户，实现出来的很垃圾，可以说是只支持使用一个规则。没有试过多个这样的标签宏嵌套，但是估计是回调地狱重现世间 :sweat_smile: （或许可以用 `std::Result::flatten()` 来避免，但是它目前还是 nightly 的 API）。
+
+    这里的实现也有点蠢，是用的 quote 和 syn 自动解析的修改后的函数签名，尝试过手动构造，但是太恶心了构造不来。
+    
+    ```rust
+    pub(crate) fn process_func(mut func: ItemFn) -> ItemFn {
+        let output = func.sig.output;
+        // Currently, use quote/syn to automatically generate it,
+        // don't know if there is a better way.
+        // Seems hard to parse new ReturnType only or construct ReturnType by hand.
+        let dummy_func = match output {
+            ReturnType::Default => {
+                quote! {
+                    fn dummy() -> Result<(), String> {}
+                }
+            }
+            ReturnType::Type(_, return_type) => {
+                quote! {
+                    fn dummy() -> Result<#return_type, String> {}
+                }
+            }
+        };
+        let dummy_func: ItemFn = syn::parse2(dummy_func).unwrap();
+        // replace the old ReturnType to the dummy function ReturnType
+        func.sig.output = dummy_func.sig.output;
+        func
+    }
+    ```
+
+
+### 还得学习一个
+
+本章节抄录一些别人写的黑魔法宏。
 
 ## References
 

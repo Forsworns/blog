@@ -117,6 +117,9 @@ export default {
           "顽童大了别再追问，可以任我走怎么又随着大队走，人群是那么像羊群。",
           "灵气大概早被污染，谁为了生活不变。",
           "差不多冬至一早一晚还是有雨，当初的坚持现已令你很怀疑。",
+          "等我醒来,我会最先打听你的名字。想必你的名字会铭刻在历史上,成为指引我的光芒。",
+          "等到再长大些，可以到处去其他地方的时候，想去遥远的国家，想去遥远的小岛，想去谁都没有的小岛，想去不管是痛苦的事情还是悲伤的事情都没有的小岛。",
+          "只有我不存在的城市，只有我不存在的时间，那才是我真正的宝物。",
         ],
         labels: [
           "个人信息",
@@ -147,6 +150,9 @@ export default {
           "I'm at a payphone trying to call home, all of my change I spent on you. Where have the times gone?",
           "I see Barsad, and Cly, Defarge, The Vengeance, the Jurymen, the Judge, long ranks of the new oppressors who have risen on the destruction of the old, perishing by this retributive instrument, before it shall cease out of its present use.",
           "Who's gonna rock you when the sun won't let you sleep? Who's waking up to drive you home when you're drunk and all alone? Who's gonna walk you through the dark side of the morning?",
+          "Our life is not our own, from the womb to the grave, and others are closely linked.Regardless of past life, an evil, each charity will determine our future rebirth.",
+          "I've seen things you people wouldn't believe. Attack ships on fire off the shoulder of Orion. I watched C-beams glitter in the dark near the Tannhauser Gate. All those moments will be lost in time. Like tears in rain.",
+          "Nobody exists on purpose. Nobody belongs anywhere. We’re all going to die. Come watch TV.",
         ],
         labels: [
           "Information",
