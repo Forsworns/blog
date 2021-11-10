@@ -183,6 +183,44 @@ fn impl_hello_macro(ast: &syn::DeriveInput) -> TokenStream {
 }
 ```
 
+另外，**Custom Derive 宏可以携带Attributes，称为 Derive macro helper attributes**，具体编写方法可以参考 [Reference](https://doc.rust-lang.org/reference/procedural-macros.html#derive-macro-helper-attributes)（Rust 中共有[四类 Attributes](https://doc.rust-lang.org/reference/attributes.html)）。关于 Derive macro helper attributes 这里有一个坑就是在使用 `cfg_attr` 时，需要把 Attributes 放在宏之前。举个栗子：
+
+使用 kube-rs 可以很方便地定义 CRD（Custom Resource Definition）：
+
+```rust
+#[derive(CustomResource, Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[kube(group = "clux.dev", version = "v1", kind = "Foo", namespaced)]
+struct FooSpec {
+    info: String,
+}
+```
+
+我第一反应是 #[kube] 在这里是下面提到的 Attribute-Like 宏，但是 kubers 文档才发现是 `CustomResource` Custom Derive 宏的 Attribute。这里我们想用 `cfg_attr` 来控制是否去做 derive，一开始就想当然地这么写了：
+
+```rust
+#[cfg_attr(feature="use_kube_rs",
+    derive(CustomResource, Clone, Debug, Deserialize, Serialize, JsonSchema),
+    kube(group = "clux.dev", version = "v1", kind = "Foo", namespaced)
+)]
+struct FooSpec {
+    info: String,
+}
+```
+
+然而这是错误的打开方式，需要写成：
+
+```rust
+#[cfg_attr(feature="use_kube_rs",
+    kube(group = "clux.dev", version = "v1", kind = "Foo", namespaced),
+    derive(CustomResource, Clone, Debug, Deserialize, Serialize, JsonSchema)
+)]
+struct FooSpec {
+    info: String,
+}
+```
+
+Attributes 需要写在宏的 derive 前面。
+
 ### Attribute-Like 宏 
 
 attribute-like 宏和 custom derive 宏很相似，只是标签可以自定义，更加灵活，甚至可以使用在函数上。他的使用方法如下，比如假设有一个宏为 `route` 的宏
