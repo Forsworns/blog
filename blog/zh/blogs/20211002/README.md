@@ -62,7 +62,7 @@ RDMA是一种新的直接内存访问技术，RDMA让计算机可以直接存取
 RDMA作为一种host-offload, host-bypass技术，使低延迟、高带宽的直接的内存到内存的数据通信成为了可能。目前支持RDMA的网络协议有：
 
 1. InfiniBand(IB): 从一开始就支持RDMA的新一代网络协议。由于这是一种新的网络技术，因此需要支持该技术的网卡和交换机。
-2. RDMA过融合以太网(RoCE): 即RDMA over Ethernet, 允许通过以太网执行RDMA的网络协议。这允许在标准以太网基础架构(交换机)上使用RDMA，只不过网卡必须是支持RoCE的特殊的NIC。
+2. RDMA过融合以太网(RoCE): 即RDMA over Ethernet, 允许通过以太网执行RDMA的网络协议。这允许在标准以太网基础架构(交换机)上使用RDMA，只不过网卡必须是支持RoCE的特殊的NIC。RoCEv1 是数据链路层的协议，只支持同一广播域内的节点通信；RoCEv2 基于 UDP，同时支持 IPv4 和 IPv6，默认使用 4791 端口。RoCEv2 正在成为事实标准。
 3. 互联网广域RDMA协议(iWARP): 即RDMA over TCP, 允许通过TCP执行RDMA的网络协议。这允许在标准以太网基础架构(交换机)上使用RDMA，只不过网卡要求是支持iWARP(如果使用CPU offload的话)的NIC。否则，所有iWARP栈都可以在软件中实现，但是失去了大部分的RDMA性能优势。
 
 ![img](./v2-e854577d2b1fb56889c95d76999d6583_720w.jpg)
@@ -429,3 +429,9 @@ struct ibv_send_wr {
 ## 附录一： OFED Verbs
 
 ![img](./v2-f784e50e30e8faae55822ef0617c01ca_720w.jpg)
+
+# 论文
+
+## ATC21: MigrOS: Transparent Live-Migration Support for Containerised RDMA Applications
+
+这篇文章提出容器化和 RDMA 本身是冲突的，容器化为应用提供了独立于宿主机的运行时，RDMA 则会让应用和宿主机之间的联系更加紧密。这种冲突导致容器在重启或迁移时，无法恢复被中断的 RDMA 应用。这篇文章修改了 RoCEv2 协议，增加了两个状态，增强了 IB verbs API，从而支持 RDMA 应用的中断、恢复。然后使用 [CRIU](https://github.com/checkpoint-restore/criu) 调用他们修改过的 IB verbs API，达到恢复的目的（CRIU 是一个保存进程状态、重启进程的工具）。这篇文章非常详细地介绍了 RoCEv2，拿来学习也是很有用的。
