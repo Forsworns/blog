@@ -137,7 +137,51 @@ libbpf-rs 是一个安全的、符合 Rust 语法的 libbpf API 包裹层。libb
 
 以前用过的 SystemTap 是基于 Kprobe 实现的。SystemTap的框架允许用户开发简单的脚本，用于调查和监视内核空间中发生的各种内核函数，系统调用和其他事件。它是一个允许用户开发自己的特定于内核的取证和监视工具的系统。工作原理是通过将脚本语句翻译成C语句，编译成内核模块。模块加载之后，将所有探测的事件以钩子的方式挂到内核上，当任何处理器上的某个事件发生时，相应钩子上句柄就会被执行。最后，当systemtap会话结束之后，钩子从内核上取下，移除模块。整个过程用一个命令 stap 就可以完成。
 
+# 论文
 
+## ATC18: The design and implementation of hyperupcalls
 
+使用 ebpf 在 hypervisor 中运行客户机的经过验证代码。
 
+Hypervisor 往往把 Guest 视为黑箱，二者的交互需要 Context Switch 做中转。也有一些不需要 Context Switch 的设计，但是一侧数据结构发生改变，另一侧的代码也要更新，难以维护。由
+
+注册步骤。客户机将 C 代码编译到了可信的 eBPF 字节码，其中可能引用了客户机的数据结构。
+客户机将生成的字节码注入到 hypervisor 中，验证安全性、将它编译到原生的指令上，加入到虚拟机的 hyperupcall 列表中。
+
+执行步骤，当某个事件发生，触发 hyperupcall，可以获取并更新客户机的数据结构。
+ 
+## TON: A framework for eBPF-based network functions in an era of microservices
+[Polycube](polycube-network.readthedocs.io) 的设计文章，2021 年发表在期刊 TON 上。
+
+微服务框架。Polycube 将网络功能统一抽象成 cube，在用户空间创建一个对于service不可见的守护进程统一进行管理，当收到 REST (Representational State Transfer) API 形式的请求，会首先发给这个守护进程，它作为代理，将请求分发到某个 service 的不同实例上，把回复返还给请求方。
+
+Network Functions Virtualization
+网桥，路由器，NAT，负载平衡器，防火墙，DDoS缓解器现在都可以通过软件形式实现。但是他们往往都是 bypass 内核的。Polycube 希望通过 eBPF 动态地在内核中注册 Network Functions。
+
+Polycube 组合各个网络功能来构建任意服务链，并提供到名称空间，容器，虚拟机和物理主机的自定义网络连接。Polycube 还支持多租户，可以同时启用多个虚拟网络 [11]。
+
+当时分享时被问到的一个问题是和 Cilium 有什么区别，orz 还是没搞清，之后再看吧。
+
+:::tip Linux 处理 TCP 包有两条路径，fast path 和 slow path。使用快速路径只进行最少的处理，如处理数据段、发生ACK、存储时间戳等。使用慢速路径可以处理乱序数据段、PAWS（Protect Againest Wrapped Sequence numbers，解决在高带宽下，TCP序列号在一次会话中可能被重复使用而带来的问题）、socket内存管理和紧急数据等。:::
+
+## Bringing the Power of eBPF to Open vSwitch
+
+发表在 2018 年的 Linux Plumbers Conference 上，Open vSwitch 是一个运行在 Linux 下的软件定义交换机，它最初是通过内核中的 openvswitch.ko 这个模块实现的，但是项目组现在开辟了两个新的项目，OVS-eBPF 和 OVS-AFXDP。前者的目的是使用 eBPF 重写现有的流量处理功能，attach 到了 TC 的事件上；而后者则是使用 AF_XDP 套接字 bypass 掉内核，把流量处理转移到用户空间。
+
+OVS eBPF datapath 包含多个 eBPF 程序和用户态的 ovs-vswitchd 作为控制平面。eBPF 程序是通过尾调用相连的，eBPF maps 在这些 eBPF 程序和用户空间应用之间是共享的。
+ 
+## OSDI20: hXDP: Efficient Software Packet Processing on FPGA NICs
+
+在 FPGA 上实现 eBPF/XDP，削减 eBPF 指令集、并行执行，最终在时钟频率为 156MHz 的 FPGA 上达到 GHZ CPU 处理包的速度。
+
+## CONEXT 19: RSS++ load and state-aware receive side scaling
+
+接收方缩放（Receive Side Scaling，RSS）是一种网络驱动程序技术，可在多处理器系统中的多个CPU之间有效分配网络接收处理。
+接收方缩放（RSS）也称为多队列接收，它在多个基于硬件的接收队列之间分配网络接收处理，从而允许多个CPU处理入站网络流量。RSS可用于缓解单个CPU过载导致的接收中断处理瓶颈，并减少网络延迟。
+它的作用是在每个传入的数据包上发出带有预定义哈希键的哈希函数。哈希函数将数据包的IP地址，协议（UDP或TCP）和端口（5个元组）作为键并计算哈希值。（如果配置的话，RSS哈希函数只能使用2,3或4个元组来创建密钥）。
+哈希值的多个最低有效位（LSB）用于索引间接表。间接表中的值用于将接收到的数据分配给CPU。
+
+传统 RSS 只依赖哈希，分布可能是不均匀的；一般的负载均衡是关注服务器之间的，这里的是关注的单机的多核负载均衡。在接收时，某个CPU可能缓存更多的包，导致占用率过高，出现丢包的情况，延迟也会相应增加
+
+通过动态修改 RSS 表在 CPU 核心之间分配流量。RSS++摆脱了延迟分布的长尾，提升了CPU利用率，还支持削减参与到包转发过程中的 CPU 核心数，避免核心数过量。比如左边图片，第三段，自动空余出了  CPU。
 
