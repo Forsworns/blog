@@ -12,6 +12,12 @@
         "attrs": ["配环境"]
     },
     {
+        "date": "2019/09/01",
+        "title": "Man 命令查出来的数字是啥意思",
+        "content": "Unix Man 相关命令",
+        "attrs": ["转载", "unix", "shell"]
+    },
+    {
         "date": "2019/09/08",
         "title": "压缩感知小结",
         "content": "知识总结和一小部分心得"
@@ -188,7 +194,7 @@
     },
     {
         "date": "2021/07/15",
-        "title": "XDP Tutorial 学习笔记",
+        "title": "XDP Tutorial 学习笔记（附 tutorial slides）",
         "content": "学习一下 libbpf 下 XDP 的使用",
         "attrs": ["bpf", "xdp"]
     },
@@ -206,8 +212,26 @@
     },
     {
         "date": "2021/10/02",
-        "title": "RDMA 基础",
+        "title": "转载：RDMA 基础",
         "content": "基础知识",
         "attrs": ["转载", "RDMA"]
+    },
+    {
+        "date": "2021/11/20",
+        "title": "Sentinel Rust 介绍",
+        "content": "Sentinel-Rust 介绍和示例",
+        "attrs": ["Rust", "云原生", "并发"]
+    },
+    {
+        "date": "2021/11/30",
+        "title": "Do not use `#[serde(deny_unknown_fields)]` on k8s CRD struct",
+        "content": "用 kube-rs 的时候碰到的一个有趣的问题",
+        "attrs": ["Rust", "云原生", "一点趣事"]
+    },
+    {
+        "date": "2021/12/10",
+        "title": "工业物联网通讯笔记",
+        "content": "工业物联网通讯相关杂记：EtherCAT、S7",
+        "attrs": ["物联网"]
     }
 ]

@@ -242,11 +242,11 @@ make DEBUG='-D A_MACRO'
 
 - 直接使用 `=` 就可以在 Makefile 中定义变量如 `CC = gcc`，使用 `$(CC)` 可以读取它 
 
-## cmake 笔记
+# cmake 笔记
 
 使用 cmake 读取 CMakeList.txt 可以自动生成需要的 Makefile。CMakeList 的语法：
 
-### 指定安装目录
+## 指定安装目录
 
 通过定义 `CMAKE_INSTALL_PREFIX:PATH` 更改安装路径，在无法获取 sudo 权限时候可以使用这种方式安到当前用户目录下？
 
@@ -257,8 +257,61 @@ cmake -DCMAKE_INSTALL_PREFIX:PATH=$(realpath ../install) ..
 make -j N install
 ```
 
-
 例如这个例子中，通过 `realpath` 获取相对路径的绝对路径名，从而安装在上级的 install 目录下
+
+## 多级目录、多个链接库
+
+例如这里我有一个
+
+```bash
+.
+├── main.c
+├── first.c
+├── first.h
+└── second
+```
+
+这样的文件目录，怎么在根目录下构建 `main.c` 呢？同时依赖于 `first.c` 文件和 `second` 目录下的两个库（均为 C 实现），同时 `first.c` 又依赖于 `second`目录下的库。
+
+在根目录下，编写
+
+```cmake
+cmake_minimum_required (VERSION 3.10.2)
+project (laser)
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+add_definitions(-DENABLE_DBG)
+
+# second lib
+add_subdirectory(second) # add this directory to project, traverse it, and apply the `CMakeLists.txt` inside it
+list(APPEND EXTRA_INCLUDES "${PROJECT_SOURCE_DIR}/second")
+set_target_properties(second PROPERTIES LINKER_LANGUAGE C)
+
+# lib for first main logic
+add_library(first first.c)
+target_link_libraries(first second) # built target for `first` lib would be dependent on on second lib
+target_include_directories(first PUBLIC
+  ${PROJECT_BINARY_DIR}
+  ${EXTRA_INCLUDES}
+  ) # the headers in the second lib would be added to include path, so that we do not need to configure relative paths when include them in codes
+
+# main executable file
+set(SRC_LIST main.c)
+add_executable(laser ${SRC_LIST})
+target_link_libraries(laser first)
+# or target_link_libraries(laser first second), up to your requirements on second lib
+```
+
+对 first 和 second 两个库和 main.c 对应的代码都构建编译 target，通过 `target_link_libraries` 去声明依赖关系，这样会自动先编译 second 库，再编译 first 库，把 second 库链接给它，再链接 first 库编译 main.c 对应的可执行文件。使用 cmake 就是一个声明依赖关系的过程，而且很多步骤 cmake 都会自动帮忙干。
+
+那么在 second 目录下，还需要加一个，定义一个名为 second 的库，并用 `file()` 函数方便地选取目录下所有文件
+
+```cmake
+file(GLOB SOURCES *.c)
+file(GLOB HEADERS *.h)
+
+add_library(second ${SOURCES} ${HEADERS})
+```
 
 # Reference 
 

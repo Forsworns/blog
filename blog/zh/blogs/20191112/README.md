@@ -25,8 +25,8 @@ tag: 笔记
 | 1. `set root=(hdX,Y)`                 | Confirm the correct X,Y values and press ENTER.              |
 |                                       | Example: If the Ubuntu system is on sda5, enter:  `set root=(hd0,12)` |
 | 2. `linux /vmlinuz root=/dev/sdXY ro` | Example: `linux /vmlinuz root=/dev/sda12 ro`                 |
-|                                       | If the vmlinuz symlink does not exist, use the full path to the kernel in `/boot`. Example: `linux /boot/vmlinuz-3.2.0-14-generic root=/dev/sda1 ro` |
-| 3. `initrd /initrd.img`               | Selects the latest initrd image. If the *vmlinuz* symlink does not exist, use the full path to the initrd image in `/boot`. |
+|                                       | If the *vmlinuz* symlink does not exist, use the full path to the kernel in `/boot`. Example: `linux /boot/vmlinuz-3.2.0-14-generic root=/dev/sda1 ro` |
+| 3. `initrd /initrd-xxx-xxx.img`               | Selects the latest initrd image. If the *initrd* symlink does not exist, use the full path to the initrd image in `/boot` as above `vmlinuz`. |
 | 4. `boot`                             | Boot to the latest kernel on the selected partition.         |
 
 :::tip

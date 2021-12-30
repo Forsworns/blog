@@ -207,3 +207,5 @@ static bool process_packet(struct xsk_socket_info *xsk, uint64_t addr, uint32_t 
 Linux manual page 上的 [bpf-helpers](https://man7.org/linux/man-pages/man7/bpf-helpers.7.html) 页面。
 
 前几篇 bpf 的相关笔记。
+
+组会和同学分享了近期的学习积累，做了一个 ppt，包含一些相关论文的概述，[slides 链接](./eBPF.pptx)。
