@@ -1,0 +1,47 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - master
+
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-deploy-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-deploy
+      
+      - name: Secrets
+        env:
+          SECRET_FILE: blog/.vuepress/secret.js
+        run: |
+          echo module.exports = {                 > ${SECRET_FILE}
+          echo GA:\'${{ secrets.GA }}\',            >> ${SECRET_FILE}
+          echo CLIENT_ID:\'${{ secrets.CLIENT_ID }}\',      >> ${SECRET_FILE}
+          echo CLIENT_SECRET:\'${{ secrets.CLIENT_SECRET }}\',  >> ${SECRET_FILE}
+          echo } >> ${SECRET_FILE}
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14.18.1'
+      - run: npm install
+      - run: npm run build
+
+      - name: Deploy
+        uses: cpina/github-action-push-to-another-repository@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
+        with:
+          source-directory: "blog/.vuepress/dist"
+          destination-github-username: "Forsworns"
+          destination-repository-name: "Forsworns.github.io"
+          user-email: ${{ secrets.MAIL }}
+          target-branch: master
