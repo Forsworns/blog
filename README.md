@@ -17,16 +17,16 @@ npm build
 Deploying:
 
 ```shell
-./deploy.sh
+./deploy.sh 
+# or ./deploy.ps1 on Windows
+# or git action in .github/workflows/deploy.yml
 ```
-
-
 
 `blog\zh\blogs` 下写作，把摘要信息写在目录下的`blog.json`中 
 
 ---
 
-博客基于原生的Vuepress，做了如下改动：
+博客基于原生的 Vuepress，做了如下改动：
 
 - 修改过`\node_modules\@vuepress\theme-default\components\Navbar.vue` 中改成了
 
@@ -62,7 +62,9 @@ Deploying:
 
 - 自动抽取最新两篇博客到首页。
 
-- 添加了`google-analytics`，需要在`blog/.vuepress/`下新建`secret.js`。
+- 添加了自动化部署脚本，见 `.github/workflow/deploy.yml`，需要修改 `destination-github-username`、`destination-repository-name`，由于是向另一个分支强制推送，还需要在项目的 `Settings/Secrets` 下添加 GitHub Token。
+
+- 添加了`google-analytics`，本地部署需要在`blog/.vuepress/`下新建`secret.js`。
 
     ```javascript
     // blog/.vuepress/secret.js
@@ -72,13 +74,11 @@ Deploying:
         CLIENT_SECRET: "your client secret",
     }
     ```
+    
+    自动化部署时，需要在项目的 `Settings/Secrets` 下添加 GA 的配置信息，脚本会抽取它在构建的过程中自动生成该文件。
 
 ---
 
-Todo（遥遥无期）
-
-- 自动从YAML中抽取摘要信息
-- Vuepress 2，Vue 3
 
 
 

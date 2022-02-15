@@ -119,7 +119,7 @@
         "date": "2021/02/24",
         "title": "Rust宏学习笔记",
         "content": "Keep Learning！",
-        "attrs": ["Rust"]
+        "attrs": ["Rust", "宏学家"]
     },
     {
         "date": "2021/02/26",
@@ -202,7 +202,13 @@
         "date": "2021/07/28",
         "title": "转载：泛型和元编程的模型：Java, Go, Rust, Swift, D等",
         "content": "很有趣的文章，类似的推荐阅读《七周七语言：理解多种编程范型》",
-        "attrs": ["转载", "泛型"]
+        "attrs": ["转载", "泛型", "Polyglot"]
+    },
+    {
+        "date": "2021/08/01",
+        "title": "转载：泛型和元编程的模型：Java, Go, Rust, Swift, D等",
+        "content": "很有趣的文章，之前那篇讨论泛型，这里讨论宏",
+        "attrs": ["转载", "宏学家", "Polyglot"]
     },
     {
         "date": "2021/08/22",
@@ -220,18 +226,30 @@
         "date": "2021/11/20",
         "title": "Sentinel Rust 介绍",
         "content": "Sentinel-Rust 介绍和示例",
-        "attrs": ["Rust", "云原生", "并发"]
+        "attrs": ["Rust", "云原生", "并发", "Sentinel"]
     },
     {
         "date": "2021/11/30",
         "title": "Do not use `#[serde(deny_unknown_fields)]` on k8s CRD struct",
-        "content": "用 kube-rs 的时候碰到的一个有趣的问题",
-        "attrs": ["Rust", "云原生", "一点趣事"]
+        "content": "为 Sentinel-Rust 添加 k8s 数据源支持时，用 kube-rs 的时候碰到的一个有趣的问题",
+        "attrs": ["Rust", "云原生", "一点趣事", "Sentinel"]
     },
     {
         "date": "2021/12/10",
         "title": "工业物联网通讯笔记",
         "content": "工业物联网通讯相关杂记：EtherCAT、S7",
         "attrs": ["物联网"]
+    },
+    {
+        "date": "2022/01/01",
+        "title": "WebAssembly in Envoy",
+        "content": "为 Sentinel-Rust 增加 Envoy 插件做的调研",
+        "attrs": ["Rust", "云原生", "WASM", "Sentinel"]
+    },
+    {
+        "date": "2022/01/05",
+        "title": "Wireshark 是在怎么抓包的？",
+        "content": "用 Wireshark 时抓到了进击的巨型帧？",
+        "attrs": ["Tracing", "一点趣事"]
     }
 ]

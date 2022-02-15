@@ -33,6 +33,7 @@ jobs:
         with:
           node-version: '14.18.1'
       - run: npm install
+      - run: cp ./build-config/Navbar.vue ./node_modules/@vuepress/theme-default/components/Navbar.vue
       - run: npm run build
 
       - name: Deploy
