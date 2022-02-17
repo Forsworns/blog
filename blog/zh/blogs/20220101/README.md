@@ -116,7 +116,7 @@ Proxy-Wasm 扩展可以通过使用 Envoy 的 `Config::DataSource` 在配置中�
 
 ## 一点碎碎念
 
-前段时间课题研究看了一段时间 eBPF 和它的虚拟机的移植，最近再来看 Wasm，感觉理解起来快了不少。之前只知道 Wasm 在浏览器端貌似非常成功，今天才知道它的虚拟机结合到了 Envoy 代理中提供非侵入式的插件功能，这实际上和 eBPF 之于 Linux 内核的角色类似。之前看了 CNCF 会的一则 [演讲](https://www.youtube.com/watch?v=99jUcLt3rSk)，演讲者预言：未来十年的 Linux 属于 eBPF，希望能看到更多 Wasm 引导的技术上的进步。 
+前段时间课题研究看了一段时间 eBPF 和它的虚拟机的移植，最近再来看 Wasm，感觉理解起来快了不少。之前只知道 Wasm 在浏览器端貌似非常成功，今天才知道它的虚拟机结合到了 Envoy 代理中提供非侵入式的插件功能，这实际上和 eBPF/XDP 之于 Linux 内核的角色类似。之前看了 CNCF 会的一则 [演讲](https://www.youtube.com/watch?v=99jUcLt3rSk)，演讲者预言："未来十年的 Linux 属于 eBPF"；希望能看到更多 Wasm 引导的技术上的进步。 
 
 回想搁置掉的 eBPF 虚拟机课题，又在考虑它的实际应用场景。有看到过一些类似工作：往 Sel4 上移植 Wasm 虚拟机的小项目、在嵌入式平台移植 $\mu$-JVM 的 RTOS 论文，但是似乎都是隔靴搔痒。为什么要移植这个虚拟机而不是另一个，到底优势在哪里，适用的场景是什么，还是很难去考量的。
 
@@ -124,6 +124,34 @@ Proxy-Wasm 扩展可以通过使用 Envoy 的 `Config::DataSource` 在配置中�
 
 ## 最近的进展
 
-之前读了上面提到的博客 [Extending Envoy with Wasm and Rust](https://antweiss.com/blog/extending-envoy-with-Wasm-and-rust/)，实际部署了一下，作者原始的 demo 项目有些依赖比较老了，重新调试后发布在这个[项目](https://github.com/Forsworns/proxy-wasm-rust)。
+### 一个简单的 Envoy Wasm 插件示例
 
-在 Sentinel-Rust 中也尝试了向 WASM target 平台的编译，修改了一些倒是编译成功了。但是却始终无法集成到上面的 demo 中。一方面是 Sentinel 在实现的时候启动了大量的线程，但是 Wasm 运行时是单线程的；另一方面是 sdk 的简洁来源于 Envoy 暴露的接口，抛开这些接口，向项目中添加支持 Wasm 的一些 crate，例如 `rand`, `uuid` 都十分困难，和浏览器端使用 `wasm-pack` 直接打包又不同。
+之前读了上面提到的利用 proxy-wasm 在 Envoy 里实现一个简单的插件的博客 [Extending Envoy with Wasm and Rust](https://antweiss.com/blog/extending-envoy-with-Wasm-and-rust/)，实际部署了一下，作者原始的 demo 项目有些依赖比较老了，现在 Envoy 官方的镜像已经可以正常使用了，稳定版 Rust 工具链也可以正常编译出 wasm 字节码，所以重新调试后发布在这个[项目](https://github.com/Forsworns/proxy-wasm-rust)。
+
+### 多线程方面的探索调研
+
+有了三面那个插件的 demo。我在 Sentinel-Rust 中也尝试了向 WASM target 平台的编译，折腾了半天倒是编译成功了。但是却始终无法集成到上面的 demo 中。一方面是 Sentinel 在实现的时候启动了大量的线程，但是 Wasm 的运行时是单线程的；另一方面是 proxy-wasm 的简洁来源于网关那边暴露的接口，抛开这些标准的接口，向网关的 wasm 插件中添加支持 Wasm 的一些 crate，例如 `rand`, `uuid` 都十分困难，和浏览器端使用 `wasm-pack` 直接打包又不同。
+
+浏览器端 wasm 是可以使用多线程的，在转换成 js 的时候可以使用 Web Worker 和 SharedArrayBuffer：
+
+- [wasm-mt](https://github.com/w3reality/wasm-mt) 封装了创建 Worker 的过程。
+
+- [wasm-bindgen-rayon](https://github.com/GoogleChromeLabs/wasm-bindgen-rayon) 同样通过 Worker 实现了对 `rayon` 的支持。
+
+- [Parallel Raytracing](https://rustwasm.github.io/wasm-bindgen/examples/raytrace.html) 中 `wasm-bindgen` 提供了直接使用 Worker 自己封装一个线程池的示例，用了一个 Rust 实现的光追算法构建了 Web 应用。
+
+### 文件读写方面的探索调研
+
+直接把 Sentinel-Rust 集成到 prxoy-wasm 的 demo 里编译成 wasm 字节码再插入到 Envoy 中估计是走不通了。和小伙伴讨论了一下有没有什么曲线救国的办法，提到了想一想进程间通信的方法，像共享内存、MQ、套接字这些。
+
+但是很可惜，由于 wasm 本身在封闭沙箱里运行有自己独立的内存地址空间（是一个简单的单地址空间）、不支持多线程、网络通讯是由 host 提供的（参见 [WebAssembly/design/#1251](https://github.com/WebAssembly/design/issues/1251)）原因，在 Envoy 里嵌入的运行时应该都做不到，浏览器或者 `wasmtime` 这种可能还可行。
+
+由于感觉和 eBPF 很相似，考虑有没有像 eBPF/XDP 的 `pin/unpin` 特殊文件一样：在 prxoy-wasm 的程序里，收到流量就去写一个文件，在另一个进程里去读这个文件并创建 Sentinel，查了一下，果然是有这样的机制，可以参考
+
+- [StackOverflow QA](https://stackoverflow.com/questions/45535301/can-i-read-files-from-the-disk-by-using-webassembly)
+
+- [Emscripten 的示例](https://github.com/emscripten-core/emscripten/blob/main/tests/asmfs/fopen_write.cpp)
+
+但是看上去要用 Emscripten 的 emmc，生成 js 代码，估计和浏览器端的 wasm 多线程一样又是依赖于 js 的一些 feature，用 cargo 生成 wasm 字节码不知道咋样，可能需要去看看 [WASI Standard](https://wasi.dev/) 。
+
+但是就算可以跑通，又有别的问题，这个文件是否可以映射到内存去（比如有可能使用 `mmap` 调用）、怎么在进程间同步（类 AOF 文件似乎也不太合适，清理起过期的数据也困难）。
