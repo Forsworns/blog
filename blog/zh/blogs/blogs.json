@@ -251,5 +251,11 @@
         "title": "Wireshark 是在怎么抓包的？",
         "content": "用 Wireshark 时抓到了进击的巨型帧？",
         "attrs": ["Tracing", "一点趣事"]
+    },
+    {
+        "date": "2022/02/24",
+        "title": "Sentinel 结合 eBPF 的探索",
+        "content": "一则使用 Sentinel 做基于 eBPF 的流量控制的例子",
+        "attrs": ["Rust", "bpf", "xdp", "Sentinel"]
     }
 ]
