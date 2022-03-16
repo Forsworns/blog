@@ -146,7 +146,7 @@ virtqueue 是一个简单的结构，声明了一个额外的回调函数（该�
 
 ### Virtio Vring
 
-这部分主要抄录自[<sup>[4]</sup>](#Reference)。
+详见  [<sup>[4]</sup>](#Reference) 。
 
 
 

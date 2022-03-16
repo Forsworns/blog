@@ -13,7 +13,7 @@
     },
     {
         "date": "2019/09/01",
-        "title": "Man 命令查出来的数字是啥意思",
+        "title": "转载：Man 命令查出来的数字是啥意思",
         "content": "Unix Man 相关命令",
         "attrs": ["转载", "unix", "shell"]
     },
@@ -206,7 +206,7 @@
     },
     {
         "date": "2021/08/01",
-        "title": "转载：泛型和元编程的模型：Java, Go, Rust, Swift, D等",
+        "title": "转载：谈元编程与表达能力",
         "content": "很有趣的文章，之前那篇讨论泛型，这里讨论宏",
         "attrs": ["转载", "宏学家", "Polyglot"]
     },
@@ -257,5 +257,11 @@
         "title": "Sentinel 结合 eBPF 的探索",
         "content": "一则使用 Sentinel 做基于 eBPF 的流量控制的例子",
         "attrs": ["Rust", "bpf", "xdp", "Sentinel"]
+    },
+    {
+        "date": "2022/03/16",
+        "title": "转载：virtio详细介绍和1.1新功能",
+        "content": "之前做 IPCC 看过 virtio 相关内容，又忘了 orz",
+        "attrs": ["转载", "虚拟化"]
     }
 ]
