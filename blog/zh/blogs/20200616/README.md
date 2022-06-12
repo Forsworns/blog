@@ -181,6 +181,8 @@ def add_scratch_programs(bld):
 ```
 还有需要注意的一点是，如果在cpp中导入了自己的python包，要注意下包的路径，否则会找不到。因为ns3的脚本运行时候的路径是在根目录。可以把包copy到ns3的根目录，或者在用`PyRun_SimpleString ("sys.path.append('./where you place package')");`加个路径。
 
+如果是用 anaconda 这种，还需要向路径中添加当前环境的包的位置。
+
 改完之后，万幸，代码能跑起来了~
 
 体会就是“只要我们不停下脚步，道路就会不断延伸”。
@@ -200,6 +202,21 @@ def add_scratch_programs(bld):
 　　█▊　　█▋                                                             
 　　 █▏　　█▙                                                             
 　　 █                                                                   
+
+### 两年后重新编译这个混编的项目
+混编是基于[别人做 lte-u 的版本](https://bitbucket.org/ns3lteu/ns-3-dev-lbt/src/laa-wifi-coexistence/src/) 做的，只是在 scratch 目录下面添加了自己的代码。
+
+我现在的 WSL 是安装的 Ubuntu 20，默认是 gcc9 和 python3.9，但是很奇怪的是 `/usr/include/` 下默认是安装的 python3.8-dev 的头文件，混编很麻烦会有各种奇怪的问题，没法编译过。当时没有写清楚配置，现在又麻烦了。
+
+既然已经想不起来当时的配置了，只能排列组合尝试了（没有找到 gcc、python-dev 和 python 的对应版本的表）。最后确认是 gcc 7.3，python3.6-dev 和 Python 3.5，成功编译过了。但是当时肯定不是这个组合的，python 代码里用了 `f"{}"`格式字符串，应该当时是在 python3.6 以上的。
+
+安装 gcc 7.3：apt 源上的gcc7 不是 gcc 7.3，是 gcc 7.5，会有 LTO 不匹配的问题，类似于 [该老哥碰到的](https://segmentfault.com/a/1190000022655994)。所以 gcc 7.3 要从头编译，之后可以用 update-alternative 管理下本机的多版本 gcc，注意在编译 ns3 项目的时候切换回来就行了，同时保持 g++ 和 gcc 版本一致。编译过程中可能会碰到 glibc 新版本丢弃掉了 `<sys/ustat.h>` 的 [问题](https://blog.csdn.net/weixin_46584887/article/details/122538399) 和一个静态检查的[问题](https://stackoverflow.com/questions/63437209/error-narrowing-conversion-of-1-from-int-to-long-unsigned-int-wnarrowi)。
+
+想要安装低版本的 python3.6-dev，想要添加额外的源，可以参考这个[链接](https://stackoverflow.com/questions/43621584/why-cant-i-install-python3-6-dev-on-ubuntu16-04)。注意要安的是 python3.6-dev，确保 `/usr/include` 下有 python3.6 头文件目录，代码里会引用这个下面的 `Python.h`。最新的 conda 安装目录下的 `include` 中默认携带的是 python3.9-dev 的头文件，不能直接拿来用。
+
+之后 conda 里安 python 3.6 的环境，否则也可能会报 LTO 版本不一致问题。此时可以在进入到 conda 的 python 3.6 环境下编译 ns3 项目了。
+
+以及 Python 出问题的地方可以用，`PyErr_Print()` 函数可以用来打印错误信息。
 
 ### 补充：ns3文档中相关内容
 

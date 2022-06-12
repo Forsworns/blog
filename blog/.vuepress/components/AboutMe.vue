@@ -50,9 +50,7 @@
 <script>
 import Information from "./components/about-me/Information";
 import Honors from "./components/about-me/Honors";
-import Projects from "./components/about-me/Projects";
 import Publications from "./components/about-me/Publications";
-import Services from "./components/about-me/Services";
 import Interests from "./components/about-me/Interests";
 
 export default {
@@ -61,9 +59,7 @@ export default {
   components: {
     Information,
     Honors,
-    Projects,
     Publications,
-    Services,
     Interests,
   },
   data() {
@@ -72,17 +68,13 @@ export default {
       icons: [
         "ion-person-add",
         "ion-ribbon-a",
-        "ion-fork-repo",
         "ion-folder",
-        "ion-coffee",
         "ion-heart",
       ],
       components: [
         "Information",
         "Honors",
-        "Projects",
         "Publications",
-        "Services",
         "Interests",
       ],
       cn: {
@@ -90,7 +82,6 @@ export default {
         name: "杨培灏",
         cityL: "居住地：",
         city: "上海",
-        schoolL: "",
         mailL: "邮箱",
         mail: "yangpeihao AT sjtu DOT edu DOT cn",
         cv: "我的简历",
@@ -124,9 +115,7 @@ export default {
         labels: [
           "个人信息",
           "奖项列表",
-          "项目列表",
           "论文列表",
-          "社会服务",
           "兴趣爱好",
         ],
       },
@@ -157,9 +146,7 @@ export default {
         labels: [
           "Information",
           "Honors",
-          "Projects",
           "Publications",
-          "Services",
           "Interests",
         ],
       },

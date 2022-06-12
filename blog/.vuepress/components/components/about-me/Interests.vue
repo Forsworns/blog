@@ -1,9 +1,7 @@
 <template>
   <div id="interests">
-    <div v-for="(item, idx) in labels" :key="item">
-      <i class="icon" :class="icons[idx]"></i>
-      {{ item }}
-    </div>
+    {{ description }}
+    <img src="/selfie.png" class="selfie" />
   </div>
 </template>
 
@@ -13,21 +11,31 @@ export default {
   props: ["lang"],
   data() {
     return {
-      icons: ["ion-headphone", "ion-film-marker", "ion-bug", "ion-playstation"],
       cn: {
-        labels: ["音乐", "动画", "编程", "游戏"],
-        contents: [],
+        description: `
+          业余时间我是一名拉拉肥，你可以在最终幻想14国服陆行鸟大区找到我 :) 
+        `,
       },
       en: {
-        labels: ["Music", "Anime", "Programming", "Game"],
-        contents: [],
+        description: `
+          In my spare time, I am a Lalafell in Final Fantasy XIV. Thank you, Yoshi-P!
+        `,
       },
     };
   },
   computed: {
-    labels() {
-      return this[this.lang].labels;
+    description() {
+      return this[this.lang].description;
     },
   },
 };
 </script>
+
+
+<style lang="scss" scoped>
+.selfie {
+  text-align: center;
+  width: 60%;
+  height: 60%;
+}
+</style>

@@ -15,6 +15,7 @@ export default {
     return {
       cn: {
         honors: [
+          "博世中国AIoT奖学金、鹰角奖学金, 2022",
           "上海交通大学优秀毕业生, 2020。",
           "杨元庆教育基金优秀本科生卓越奖学金（授予上海交通大学电子信息与电气工程学院约1%的本科生）, 2020年。",
           "IEEE SmartCloud会议最佳论文奖，2019。",
@@ -24,6 +25,7 @@ export default {
       },
       en: {
         honors: [
+          "BOSCH AIoT Scholarship、HyperGryph Scholarship, 2022.",
           "SJTU Excellent Graduates, 2020.",
           "Yang Yuanqing Education Fund Outstanding Undergraduate Award, 2020. Awarded to ~1% students in SJTU SEIEE.",
           "IEEE SmartCloud Best Paper Award, 2019.",
