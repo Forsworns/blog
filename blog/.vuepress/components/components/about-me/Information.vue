@@ -38,13 +38,13 @@
         Department of Computer Science and Engineering, Pursing MA.SC. (20-).
       </p>
       <p>
-        <i class="icon ion-briefcase"></i> Alibaba Cloud, Infrastructure, Intern, Container Networking (19-20).
+        <i class="icon ion-briefcase"></i> Alibaba Cloud, Infrastructure, Intern, Container Networking (22).
       </p>
       <p>
-        <i class="icon ion-briefcase"></i> ByteDance, Infrastructure, Intern, DPDK Driver (19-20).
+        <i class="icon ion-briefcase"></i> ByteDance, Infrastructure, Intern, DPDK Driver (22).
       </p>
       <p>
-        <i class="icon ion-briefcase"></i> PKU Advanced Institute of Information Technology, Ubiquitous OS Group, Intern, IoT OS (19-20).
+        <i class="icon ion-briefcase"></i> PKU Advanced Institute of Information Technology, Ubiquitous OS Group, Intern, IoT OS (21-22).
       </p>
       <p>
         <i class="icon ion-briefcase"></i> Intel, Data Center Platform Application Engineering Intern, Reliability/Availability/Serviceability  (19-20).

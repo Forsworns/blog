@@ -1,7 +1,9 @@
 <template>
   <div id="interests">
     {{ description }}
-    <img src="/selfie.png" class="selfie" />
+    <p>
+      <img src="/selfie.png" class="selfie" />
+    </p>
   </div>
 </template>
 
@@ -33,8 +35,10 @@ export default {
 
 
 <style lang="scss" scoped>
-.selfie {
+div {
   text-align: center;
+}
+.selfie {
   width: 60%;
   height: 60%;
 }
