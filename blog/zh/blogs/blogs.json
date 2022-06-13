@@ -263,5 +263,11 @@
         "title": "转载：virtio详细介绍和1.1新功能",
         "content": "之前做 IPCC 看过 virtio 相关内容，又忘了 orz",
         "attrs": ["转载", "虚拟化"]
+    },
+    {
+        "date": "2022/06/11",
+        "title": "CNCF Webinar 观后感",
+        "content": "看了两个 CNCF 20 研讨视频下饭",
+        "attrs": ["bpf", "云原生"]
     }
 ]
