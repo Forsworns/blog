@@ -139,7 +139,7 @@ export default {
           "Who's gonna rock you when the sun won't let you sleep? Who's waking up to drive you home when you're drunk and all alone? Who's gonna walk you through the dark side of the morning?",
           "Our life is not our own, from the womb to the grave, and others are closely linked. Regardless of past life, an evil, each charity will determine our future rebirth.",
           "I've seen things you people wouldn't believe. Attack ships on fire off the shoulder of Orion. I watched C-beams glitter in the dark near the Tannhauser Gate. All those moments will be lost in time. Like tears in rain.",
-          "Nobody exists on purpose. Nobody belongs anywhere. We’re all going to die. Come watch TV.",
+          "Nobody exists on purpose. Nobody belongs anywhere. Everybody's gonna die. Come watch TV.",
         ],
         labels: [
           "Information",
