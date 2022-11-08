@@ -275,5 +275,11 @@
         "title": "从毕业论文的致谢说起——回忆这两年",
         "content": "流水账",
         "attrs": ["一点趣事", "流水账"]
+    },
+    {
+        "date": "2022/11/08",
+        "title": "Mimic Generic Specialization in Rust",
+        "content": "Fine, I give up",
+        "attrs": ["Rust", "泛型"]
     }
 ]
