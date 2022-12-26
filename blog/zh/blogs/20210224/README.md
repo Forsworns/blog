@@ -63,6 +63,14 @@ macro_rules! vec {
 }
 ```
 
+::: `$( $x:expr ),*`和`$( $x:expr,)*`的区别是什么？
+
+前者，最后的`,`是[**MacroRepSep**](https://doc.rust-lang.org/reference/macros-by-example.html)，意味着 `1,2,3`是一个合法的序列。
+
+后者，最后的`,`是[**MacroMatch**](https://doc.rust-lang.org/reference/macros-by-example.html) 的一部分，意味着 `1,2,3,`才是一个合法的序列。
+
+:::
+
 `#[macro_export]`标签是用来声明：只要 use 了这个crate，就可以使用该宏。同时包含被 export 出的宏的模块，在声明时必须放在前面，否则靠前的模块里找不到这些宏。
 
 按照官方文档的说法，`macro_rules!`目前有一些设计上的问题，日后将推出新的机制来取代他。但是他依然是一个很有效的语法扩展方法。
@@ -183,7 +191,9 @@ fn impl_hello_macro(ast: &syn::DeriveInput) -> TokenStream {
 }
 ```
 
-另外，**Custom Derive 宏可以携带Attributes，称为 Derive macro helper attributes**，具体编写方法可以参考 [Reference](https://doc.rust-lang.org/reference/procedural-macros.html#derive-macro-helper-attributes)（Rust 中共有[四类 Attributes](https://doc.rust-lang.org/reference/attributes.html)）。关于 Derive macro helper attributes 这里有一个坑就是在使用 `cfg_attr` 时，需要把 Attributes 放在宏之前。举个栗子：
+另外，**Custom Derive 宏可以携带Attributes，称为 Derive macro helper attributes**，具体编写方法可以参考 [Reference](https://doc.rust-lang.org/reference/procedural-macros.html#derive-macro-helper-attributes)（Rust 中共有[四类 Attributes](https://doc.rust-lang.org/reference/attributes.html)）。关于 Derive macro helper attributes 这里有一个坑就是**在使用 `cfg_attr` 时，需要把 Attributes 放在宏之前。**
+
+举个栗子：
 
 使用 kube-rs 可以很方便地定义 CRD（Custom Resource Definition）：
 
@@ -195,7 +205,7 @@ struct FooSpec {
 }
 ```
 
-我第一反应是 #[kube] 在这里是下面提到的 Attribute-Like 宏，但是 kubers 文档才发现是 `CustomResource` Custom Derive 宏的 Attribute。这里我们想用 `cfg_attr` 来控制是否去做 derive，一开始就想当然地这么写了：
+我第一反应是 `#[kube]` 是一个 Attribute-Like 宏，但是查阅 kube-rs 文档才发现它其实是 `CustomResource` Custom Derive 宏的 Attribute。这里我们想用 `cfg_attr` 来控制是否去做 derive，一开始就想当然地这么写了：
 
 ```rust
 #[cfg_attr(feature="use_kube_rs",
@@ -265,6 +275,114 @@ pub fn sql(input: TokenStream) -> TokenStream { ... }
 [quote](https://crates.io/crates/quote)：过程宏右护法，将语法树解析成 `TokenStream`。只要一个 `quote!{}` 就够了！`quote!{}` 宏内都是字面量，即纯纯的代码，要替换进去的变量是用的 `#` 符号标注，为了和声明宏中使用的 `$` 相区分（也就意味着用 `quote` 写过程宏的时候，可以和声明宏结合 🤤 ）。模式匹配时用到的表示重复的符号和声明宏中一样，是使用 `*`。 
 
  [darling](https://crates.io/crates/darling) 好用到跺 jio jio 的标签宏解析库，让人直呼 Darling！
+
+## MacroKata
+
+2022年12月更新
+
+看到了一个宏教程项目 [MacroKata](https://tfpk.github.io/macrokata/)，刷了一下，目前**教程中仅包含声明式的宏**，读到了一些之前没注意的点。
+
+对于声明式宏：
+
+- 除了`$ `和分隔符（`{}`、`()`、`[]`）外任意token都可以用在模式里面，如
+
+  ```rust
+  macro_rules! math {
+      ($a:literal plus $b:literal) => {
+          $a+$b
+      };
+      (square $a:literal) => {
+          $a*$a
+      };
+  }
+  ```
+
+- 把宏包装成函数接口可以避免被 `cargo expand` 展开，比如教程中为了简洁，就尽可能把 `println!` 单独包装到了函数里
+
+  > However, `macrokata` tries to avoid (as much as possible) using macros we didn't define inside the main function. The reason for this is that, if we did use `println!` you would see its expansion as well. 
+
+- 重复的参数模式只可以放到末尾，除非有明确的分隔符，否则不知道到底匹配多少个，会带来歧义。比如下面这个例子，想要表达至少有两个参数。第一种是不可行的，因为在匹配规则的时候无法往后看是否是最后一个参数。
+
+  ```rust
+  // wrong! 
+  macro_rules! sum {
+      ($($expr:expr),+ , $lastexpr:expr) => {
+          $($expr + )+ $lastexpr
+      }
+  }
+  // right!
+  macro_rules! sum {
+      ($lastexpr:expr, $($expr:expr),+) => {
+          $lastexpr $(+$expr)+ 
+      }
+  }
+  ```
+
+  
+
+- 声明式的宏的匹配带有顺序，匹配到合法项后就不会继续匹配了，比如下面这个例子中， `'a'` 是一个字面量，但是匹配到了第一条，导致第二条更加严格的模式没有被匹配到。
+
+  ```rust
+  macro_rules! ordering {
+      ($j:expr) => { "This was an expression" };
+      ($j:literal) => { "This was a literal" };
+  }
+  
+  let expr1 = ordering!('a');  // => "This was an expression".
+  let expr1 = ordering!(3 + 5);  // => "This was an expression".
+  ```
+
+- 嵌套的重复的参数：`( $( $( $val:expr ),+ );+ )`，当然 separator 可以随便替换成任意除`*`、`+`、`?`（这三个用于模式里面表示重复次数，所以会带来歧义）、`$`、分隔符之外的token。
+
+- 声明式宏调用声明式宏的时候，内部的宏能够看到的AST是不透明的，因此一般只能和外界采用相同的参数类型。但是`ident`、`lifetime`、`tt`比较特殊，可以被内部的`literal` 匹配。如下面这个例子
+
+  ```rust
+  macro_rules! foo {
+      ($l:expr) => { bar!($l); }
+  // ERROR:               ^^ no rules expected this token in macro call
+  }
+  
+  macro_rules! bar {
+      (3) => {}
+  }
+  
+  foo!(3);
+  
+  // compiles OK
+  macro_rules! foo {
+      ($l:tt) => { bar!($l); }
+  }
+  
+  macro_rules! bar {
+      (3) => {}
+  }
+  
+  foo!(3);
+  ```
+
+- 宏可以递归，比如下面这个宏
+
+  ```rust
+  enum LinkedList {
+      Node(i32, Box<LinkedList>),
+      Empty
+  }
+  
+  macro_rules! linked_list {
+      () => {
+          LinkedList::Empty
+      };
+      ($expr:expr $(, $exprs:expr)*) => {
+          LinkedList::Node($expr, Box::new(linked_list!($($exprs),*)))
+      }
+  }
+  
+  fn main() {
+      let my_list = linked_list!(3, 4, 5);
+  }
+  ```
+
+  但是宏递归很慢，因此默认 rustc 会有 128 层的限制，可以在包层面配置标签 `#![recursion_limit = "256"]`。
 
 ## 收录有趣的宏样例
 
@@ -372,12 +490,106 @@ pub fn sql(input: TokenStream) -> TokenStream { ... }
 
 本章节抄录一些别人写的黑魔法宏。
 
+#### MacroKata 中的柯里化示例
+
+##### 匿名函数 自动推导返回类型
+
+通过声明式宏的递归逐层展开
+
+```rust
+macro_rules! curry {
+    (_, $block:block) => {$block};
+    (($argident:ident : $argtype:ty) => $(($argidents:ident: $argtypes:ty) =>)* _, $block:block) => {
+        move |$argident: $argtype| {
+            print_curried_argument($argident);
+            curry!($(($argidents: $argtypes) =>)* _, $block)
+        }
+    };
+}
+```
+
+```rust
+fn main() {
+    let is_between = curry!((min: i32) => (max: i32) => (item: &i32) => _, {
+        min < *item && *item < max
+    });
+
+    let curry_filter_between = curry!((min: i32) => (max:i32) => (vec: &Vec<i32>) => _, {
+        let filter_between = is_between(min)(max);
+        vec.iter().filter_map(|i| if filter_between(i) { Some(*i) } else { None }).collect()
+    });
+
+    let between_3_7 = curry_filter_between(3)(7);
+    let between_5_10 = curry_filter_between(5)(10);
+
+    let my_vec = vec![1, 3, 5, 6, 7, 9];
+    // 5,6
+    let some_numbers: Vec<i32> = between_3_7(&my_vec);
+    // 6,7,9
+    let more_numbers: Vec<i32> = between_5_10(&my_vec);
+}
+
+```
+
+##### 显示写出返回类型
+
+下面的`box_type!`宏同样通过声明式宏的递归构造出返回类型
+
+```rust
+macro_rules! curry_unwrapper {
+    ($block:block) => {
+        $block
+    };
+    (
+        $argname:ident: $argtype:ty,
+        $($argnames:ident: $argtypes:ty,)*
+        $block:block
+    ) => {
+        Box::new(move |$argname : $argtype | {
+            curry_unwrapper!($($argnames: $argtypes,)* $block)
+        })
+    }
+}
+
+macro_rules! box_type {
+    (=> $type:ty) => {
+        $type
+    };
+    ($type:ty $(,$argtypes:ty )* => $restype:ty) => {
+        Box<dyn Fn($type) -> box_type!($($argtypes ),* => $restype)>
+    }
+}
+
+macro_rules! curry_fn {
+    (
+        $ident:ident,
+        ($argname:ident: $argtype:ty)
+            -> $(($argnames:ident: $argtypes:ty))->*
+            => $restype:ty, $block:block
+    ) => {
+        fn $ident($argname: $argtype) -> box_type!($($argtypes ),* => $restype) {
+            curry_unwrapper!($($argnames: $argtypes,)* $block)
+        }
+    }
+}
+
+fn main() {
+    curry_fn!(add, (a: i32) -> (b: i32) -> (c: i32) -> (d: i32) => i32, {
+        a + b + c + d
+    });
+
+    let res = add(3)(2)(3)(4);
+}
+```
+
 ## References
 
 [Macros - The Rust Programming Language (rust-lang.org)](https://doc.rust-lang.org/book/ch19-06-macros.html)
 
-[Macros - The Rust Reference (rust-lang.org)](https://doc.rust-lang.org/reference/macros.html)
+[Macros - The Rust Reference](https://doc.rust-lang.org/reference/macros.html)
 
-[The Little Book of Rust Macros (danielkeep.github.io)](https://danielkeep.github.io/tlborm/book/index.html)
+[The Little Book of Rust Macros](https://danielkeep.github.io/tlborm/book/index.html)
 
 [如何编写一个过程宏(proc-macro)](https://dengjianping.github.io/2019/02/28/%E5%A6%82%E4%BD%95%E7%BC%96%E5%86%99%E4%B8%80%E4%B8%AA%E8%BF%87%E7%A8%8B%E5%AE%8F(proc-macro).html)
+
+[MacroKata - Exercises for Rust Macros](https://tfpk.github.io/macrokata/)
