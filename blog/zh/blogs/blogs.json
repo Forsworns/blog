@@ -281,5 +281,11 @@
         "title": "Mimic Generic Specialization in Rust",
         "content": "Fine, I give up",
         "attrs": ["Rust", "泛型"]
+    },
+    {
+        "date": "2022/12/28",
+        "title": "The design of actix-web handler",
+        "content": "They had already foreseen this...",
+        "attrs": ["Rust", "泛型", "宏学家"]
     }
 ]
