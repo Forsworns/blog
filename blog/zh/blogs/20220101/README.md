@@ -155,3 +155,10 @@ Proxy-Wasm 扩展可以通过使用 Envoy 的 `Config::DataSource` 在配置中�
 但是看上去要用 Emscripten 的 emmc，生成 js 代码，估计和浏览器端的 wasm 多线程一样又是依赖于 js 的一些 feature，用 cargo 生成 wasm 字节码不知道咋样，可能需要去看看 [WASI Standard](https://wasi.dev/) 。
 
 但是就算可以跑通，又有别的问题，这个文件是否可以映射到内存去（比如有可能使用 `mmap` 调用）、怎么在进程间同步（类 AOF 文件似乎也不太合适，清理起过期的数据也困难）。
+
+## Sentinel-Rust 相关资源
+
+[使用指南](https://github.com/sentinel-group/sentinel-rust/wiki)
+[ API 文档](https://docs.rs/sentinel-core/latest/sentinel_core/)
+[示例代码](https://github.com/sentinel-group/sentinel-rust/tree/main/examples)
+

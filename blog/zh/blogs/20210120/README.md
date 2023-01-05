@@ -162,3 +162,11 @@ fn main() {
 - https://blog.knoldus.com/get-your-hands-wet-with-traits-object-of-rust/
 
 - https://www.136.la/jiaocheng/show-7351.html
+
+## 2023/01/05 更新
+
+最近写 rocket 的中间件的时候又碰到了这个东西 = = Interesting
+
+[Cloneable in rocket::route - Rust (docs.rs)](https://docs.rs/rocket/0.5.0-rc.2/rocket/route/trait.Cloneable.html)
+
+看上去是 rocket 在管理路由的时候，在 `rocket::Route` 用了 `Box<dyn Handler>` 来存储任意实现了 `trait Handler` 的类型的句柄，因此在克隆的时候碰到了这个问题，于是采用了上面讨论的这种方法。

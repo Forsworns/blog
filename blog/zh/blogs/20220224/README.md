@@ -94,3 +94,10 @@ while let Some((map_name, events)) = loaded.events.next().await {
 当然这里有一个问题：用户态的 Sentinel 创建程序和内核中的 XDP 程序对 `port_blocked` 这个 ebpf map 的读写是不同步的，这在初始化时尤为明显。例如将 Sentinel 的规则设置为禁止 `8000` 端口的所有流量，即 `threshold` 设置为 0，仍然可以完成第一次请求。
 
 是否可以去做同步呢？一般来讲，eBPF 一定是非阻塞的程序，也可以说是原子的。LWN 的 [一篇文章](https://lwn.net/Articles/825415/) 介绍了 `BPF_PROG_TYPE_LSM` 和 `BPF_PROG_TYPE_LSM` 两类 eBPF 程序中的标志 `BPF_F_SLEEPABLE`。即使是我们有某种同步手段，阻塞 XDP 的执行似乎仍然不是一个明智的选择。
+
+## Sentinel-Rust 相关资源
+
+[使用指南](https://github.com/sentinel-group/sentinel-rust/wiki)
+[ API 文档](https://docs.rs/sentinel-core/latest/sentinel_core/)
+[示例代码](https://github.com/sentinel-group/sentinel-rust/tree/main/examples)
+

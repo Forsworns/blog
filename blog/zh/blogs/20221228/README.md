@@ -223,3 +223,11 @@ pin_project! {
 }
 ```
 
+
+
+
+## Sentinel-Rust Resources
+
+[Tutorial](https://github.com/sentinel-group/sentinel-rust/wiki)
+[ API Doc](https://docs.rs/sentinel-core/latest/sentinel_core/)
+[Example Codes](https://github.com/sentinel-group/sentinel-rust/tree/main/examples)

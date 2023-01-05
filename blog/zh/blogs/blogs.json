@@ -287,5 +287,11 @@
         "title": "The design of actix-web handler",
         "content": "They had already foreseen this...",
         "attrs": ["Rust", "泛型", "宏学家"]
+    },
+    {
+        "date": "2023/01/01",
+        "title": "Sentinel-Rust Middleware Supports",
+        "content": "Read examples, plz.",
+        "attrs": ["Rust", "Sentinel", "Web"]
     }
 ]

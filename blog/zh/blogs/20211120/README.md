@@ -262,3 +262,10 @@ default       flow-1   40s
 
 ### 更多示例
 项目中的 `example` 目录提供了大量示例程序和参数设置参考。
+
+## Sentinel-Rust 相关资源
+
+[使用指南](https://github.com/sentinel-group/sentinel-rust/wiki)
+[ API 文档](https://docs.rs/sentinel-core/latest/sentinel_core/)
+[示例代码](https://github.com/sentinel-group/sentinel-rust/tree/main/examples)
+

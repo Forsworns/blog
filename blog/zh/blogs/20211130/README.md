@@ -87,3 +87,12 @@ Then the "unexpected" problem with `kube-rs` looms. The generated CRD struct `Fo
 [2] https://serde.rs/container-attrs.html#deny_unknown_fields
 
 [3] https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#validation
+
+
+
+
+## Sentinel-Rust Resources
+
+[Tutorial](https://github.com/sentinel-group/sentinel-rust/wiki)
+[ API Doc](https://docs.rs/sentinel-core/latest/sentinel_core/)
+[Example Codes](https://github.com/sentinel-group/sentinel-rust/tree/main/examples)
